@@ -41,7 +41,7 @@ function renderProfessionalChart(chartData, timeframe, symbol, indicators, indic
 
     initializeAxisIndicators();
     initializeCurrentPriceLine();
-    initializeChartShiftHandle();
+    initializeChartShiftTriangle();
     addCrosshairListeners();
     renderIndicatorsList();
     
@@ -227,6 +227,7 @@ function getEnhancedChartOptions(timeframe, theme) {
                 display: false
             },
             tooltip: {
+                enabled: false, // Disable hover tooltips
                 mode: 'nearest',
                 intersect: false,
                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -265,7 +266,7 @@ function getEnhancedChartOptions(timeframe, theme) {
             zoom: {
                 zoom: {
                     drag: {
-                        enabled: true,
+                        enabled: false, // Disabled by default, enabled when + button clicked
                         modifierKey: null
                     },
                     wheel: {
@@ -295,7 +296,11 @@ function getEnhancedChartOptions(timeframe, theme) {
                 },
                 grid: {
                     color: theme.grid,
-                    drawBorder: false
+                    drawBorder: true,
+                    border: {
+                        color: theme.grid,
+                        width: 1
+                    }
                 },
                 ticks: {
                     color: theme.textSecondary,
@@ -303,20 +308,32 @@ function getEnhancedChartOptions(timeframe, theme) {
                     autoSkip: true,
                     maxTicksLimit: 8
                 },
-                border: { display: false }
+                border: { 
+                    display: true,
+                    color: theme.grid,
+                    width: 1
+                }
             },
             y: {
                 position: 'right',
                 grid: {
                     color: theme.grid,
-                    drawBorder: false
+                    drawBorder: true,
+                    border: {
+                        color: theme.grid,
+                        width: 1
+                    }
                 },
                 ticks: {
                     color: theme.textSecondary,
                     callback: (value) => value.toFixed(5),
                     maxTicksLimit: 10
                 },
-                border: { display: false }
+                border: { 
+                    display: true,
+                    color: theme.grid,
+                    width: 1
+                }
             },
             y2: {
                 type: 'linear',
@@ -372,48 +389,43 @@ function updateCurrentPriceLine(price, direction) {
     }
 }
 
-// Chart Shift Handle System
-let chartShiftHandle = null;
+// MT5 Style Chart Shift Triangle System
+let chartShiftTriangle = null;
 let isDraggingShift = false;
 let chartShiftAmount = 0;
 const MAX_SHIFT_SPACE = 0.3;
 
-function initializeChartShiftHandle() {
+function initializeChartShiftTriangle() {
     const chartWrapper = document.querySelector('.chart-wrapper');
     if (!chartWrapper) return;
     
-    const existingHandle = document.getElementById('chartShiftHandle');
-    if (existingHandle) existingHandle.remove();
+    const existingTriangle = document.getElementById('chartShiftTriangle');
+    if (existingTriangle) existingTriangle.remove();
     
-    chartShiftHandle = document.createElement('div');
-    chartShiftHandle.id = 'chartShiftHandle';
-    chartShiftHandle.className = 'chart-shift-handle';
-    chartShiftHandle.innerHTML = '▼';
-    chartShiftHandle.style.display = 'block';
+    chartShiftTriangle = document.createElement('div');
+    chartShiftTriangle.id = 'chartShiftTriangle';
+    chartShiftTriangle.className = 'chart-shift-triangle';
+    chartShiftTriangle.innerHTML = '▼';
     
-    chartWrapper.appendChild(chartShiftHandle);
-    setupShiftHandleDrag();
+    chartWrapper.appendChild(chartShiftTriangle);
+    setupShiftTriangleDrag();
     
-    // Position handle at right edge
     updateChartShift();
 }
 
-function setupShiftHandleDrag() {
-    if (!chartShiftHandle) return;
+function setupShiftTriangleDrag() {
+    if (!chartShiftTriangle) return;
     
-    chartShiftHandle.addEventListener('mousedown', startShiftDrag);
+    chartShiftTriangle.addEventListener('mousedown', startShiftDrag);
     document.addEventListener('mousemove', handleShiftDrag);
     document.addEventListener('mouseup', stopShiftDrag);
-    
-    chartShiftHandle.addEventListener('touchstart', startShiftDrag);
-    document.addEventListener('touchmove', handleShiftDrag);
-    document.addEventListener('touchend', stopShiftDrag);
 }
 
 function startShiftDrag(e) {
     e.preventDefault();
     isDraggingShift = true;
-    chartShiftHandle.classList.add('dragging');
+    chartShiftTriangle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
 }
 
 function handleShiftDrag(e) {
@@ -421,7 +433,7 @@ function handleShiftDrag(e) {
     
     const chartWrapper = document.querySelector('.chart-wrapper');
     const rect = chartWrapper.getBoundingClientRect();
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientX = e.clientX;
     
     if (!clientX) return;
     
@@ -429,12 +441,20 @@ function handleShiftDrag(e) {
     chartShiftAmount = Math.max(0, Math.min(MAX_SHIFT_SPACE, 1 - relativeX));
     
     updateChartShift();
+    updateShiftPriceTimeDisplay(e);
 }
 
 function stopShiftDrag() {
     isDraggingShift = false;
-    if (chartShiftHandle) {
-        chartShiftHandle.classList.remove('dragging');
+    if (chartShiftTriangle) {
+        chartShiftTriangle.classList.remove('dragging');
+    }
+    document.body.style.cursor = '';
+    
+    // Hide shift display when done dragging
+    const shiftDisplay = document.getElementById('chartShiftDisplay');
+    if (shiftDisplay) {
+        shiftDisplay.style.display = 'none';
     }
 }
 
@@ -442,29 +462,77 @@ function updateChartShift() {
     if (!currentChart) return;
     
     const chartArea = currentChart.chartArea;
-    if (chartArea && chartShiftHandle) {
+    if (chartArea && chartShiftTriangle) {
         const handleX = chartArea.right - (chartArea.right - chartArea.left) * chartShiftAmount;
-        chartShiftHandle.style.left = `${handleX}px`;
-        chartShiftHandle.style.top = `${chartArea.top}px`;
-        chartShiftHandle.style.height = `${chartArea.bottom - chartArea.top}px`;
-        chartShiftHandle.style.display = 'block';
+        chartShiftTriangle.style.left = `${handleX}px`;
+        chartShiftTriangle.style.top = `${chartArea.top}px`;
+        chartShiftTriangle.style.display = 'block';
     }
 }
 
-// Fixed Zoom System
-let currentZoomLevel = 2; // Start at 1x zoom (index 2 in ZOOM_LEVELS)
-const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
+function updateShiftPriceTimeDisplay(e) {
+    if (!currentChart || !isDraggingShift) return;
+    
+    const chartArea = currentChart.chartArea;
+    const yScale = currentChart.scales.y;
+    const xScale = currentChart.scales.x;
+    
+    if (!chartArea || !yScale || !xScale) return;
+    
+    // Get price and time at current drag position
+    const rect = document.querySelector('.chart-wrapper').getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
+    const price = yScale.max - ((boundedY - chartArea.top) / (chartArea.bottom - chartArea.top)) * (yScale.max - yScale.min);
+    
+    const x = e.clientX - rect.left;
+    const timeValue = xScale.getValueForPixel(x);
+    const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }) : '';
+    
+    // Create or update shift display
+    let shiftDisplay = document.getElementById('chartShiftDisplay');
+    if (!shiftDisplay) {
+        shiftDisplay = document.createElement('div');
+        shiftDisplay.id = 'chartShiftDisplay';
+        shiftDisplay.className = 'chart-shift-display';
+        document.querySelector('.chart-wrapper').appendChild(shiftDisplay);
+    }
+    
+    shiftDisplay.innerHTML = `${price.toFixed(5)}<br>${timeText}`;
+    shiftDisplay.style.left = `${e.clientX + 10}px`;
+    shiftDisplay.style.top = `${e.clientY - 30}px`;
+    shiftDisplay.style.display = 'block';
+}
+
+// Zoom System with Mode Activation
+let isZoomModeActive = false;
 
 function zoomIn() {
     if (!currentChart) return;
     
-    currentZoomLevel = Math.min(ZOOM_LEVELS.length - 1, currentZoomLevel + 1);
-    applyFixedZoom();
+    // Activate zoom mode
+    isZoomModeActive = true;
+    currentChart.options.plugins.zoom.zoom.drag.enabled = true;
+    currentChart.update('none');
+    
+    // Update button state
+    const zoomBtn = document.querySelector('.control-btn');
+    if (zoomBtn && zoomBtn.textContent.includes('🔍+')) {
+        zoomBtn.innerHTML = '🔍+ ACTIVE';
+        zoomBtn.classList.add('active');
+    }
 }
 
 function zoomOut() {
     if (!currentChart) return;
     
+    // Just zoom out, don't change mode
     currentZoomLevel = Math.max(0, currentZoomLevel - 1);
     applyFixedZoom();
 }
@@ -472,9 +540,23 @@ function zoomOut() {
 function resetZoom() {
     if (!currentChart) return;
     
-    currentZoomLevel = 2; // Reset to 1x zoom
+    // Reset zoom and deactivate mode
+    isZoomModeActive = false;
+    currentZoomLevel = 2;
     currentChart.resetZoom();
+    currentChart.options.plugins.zoom.zoom.drag.enabled = false;
+    currentChart.update('none');
+    
+    // Update button state
+    const zoomBtn = document.querySelector('.control-btn');
+    if (zoomBtn && zoomBtn.textContent.includes('ACTIVE')) {
+        zoomBtn.innerHTML = '🔍+';
+        zoomBtn.classList.remove('active');
+    }
 }
+
+let currentZoomLevel = 2;
+const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
 
 function applyFixedZoom() {
     if (!currentChart) return;
@@ -633,7 +715,7 @@ function drawCrosshair() {
     ctx.restore();
 }
 
-// Tooltip positioning
+// Tooltip positioning (manual only - no hover)
 function triggerTooltipAtTime(timestamp) {
     if (!currentChart) return;
     
