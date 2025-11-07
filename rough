@@ -1,447 +1,1041 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🧠 MEGA FLOWZ - Professional Trading Dashboard</title>
-  
-  <!-- External Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1"></script>
-  
-  <!-- Google Fonts for Professional Typography -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Local Styles -->
-  <link rel="stylesheet" href="pyramid_chart.css">
-  <link rel="stylesheet" href="analysis_alerts.css">
-</head>
-<body>
-  <div class="tabs-container">
-    <div class="tabs-header">
-      <button class="tab active" onclick="switchTab('pyramid')">🏔️ Pyramid</button>
-      <button class="tab" onclick="switchTab('chart')">📈 Chart</button>
-      <button class="tab" onclick="switchTab('analysis')">📊 Analysis</button>
-      <button class="tab" onclick="switchTab('alerts')">🔔 Alerts</button>
-    </div>
+/* ===============================================================
+   🏔️📈 PYRAMID & CHART STYLES
+   =============================================================== */
+:root {
+  --bg: #0a0e14;
+  --card: #151a21;
+  --text: #e6e6e6;
+  --green: #00d394;
+  --red: #ff4d4d;
+  --gray: #8a8f98;
+  --accent: #3a86ff;
+  --tab-bg: #11161d;
+  --tab-active: #3a86ff;
+  --green-border: #00d394;
+  --red-border: #ff4d4d;
+  --gray-border: #8a8f98;
+  --grid: #1e232a;
+  --border: #2a2f36;
+  --success-bg: rgba(0, 211, 148, 0.1);
+  --danger-bg: rgba(255, 77, 77, 0.1);
+  --accent-bg: rgba(58, 134, 255, 0.1);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+.tabs-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.tabs-header {
+  display: flex;
+  background: var(--tab-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--gray);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 3px solid transparent;
+  position: relative;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+.tab.active {
+  color: var(--text);
+  border-bottom-color: var(--tab-active);
+  background: linear-gradient(135deg, rgba(58, 134, 255, 0.15), rgba(58, 134, 255, 0.05));
+}
+.tab-content {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--card) 0%, #1a1f26 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.header h1 {
+  margin: 0 0 12px 0;
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, #3a86ff, #00d394);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.025em;
+}
+.info {
+  font-size: 0.85rem;
+  color: var(--gray);
+  margin-top: 6px;
+}
+.pyramid-style-selector {
+  margin: 12px 0 6px 0;
+}
+.style-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.control-label {
+  font-size: 0.85rem;
+  color: var(--gray);
+  font-weight: 500;
+}
+.style-dropdown {
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 180px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 8L9 5' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+.style-dropdown:hover {
+  border-color: var(--accent);
+  background-color: rgba(58, 134, 255, 0.05);
+}
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px;
+  flex-wrap: wrap;
+}
+.size-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.size-btn:hover {
+  background: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.3);
+}
+.size-btn.active {
+  background: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.3);
+}
+.pyramid {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+  transition: all 0.3s ease;
+}
+.pyramid.small .block { padding: 8px; margin: 4px 0; border-left-width: 3px; }
+.pyramid.small .header-line { font-size: 0.8rem; margin-bottom: 4px; }
+.pyramid.small .ohlc { font-size: 0.7rem; padding: 3px 6px; }
+.pyramid.small .momentum-summary { font-size: 0.65rem; margin-top: 4px; padding: 4px; }
+.pyramid.small .children { margin-left: 16px; padding-left: 12px; margin-top: 6px; }
+.pyramid.small .toggle { padding: 2px 4px; font-size: 0.7rem; }
+.pyramid.medium .block { padding: 14px; margin: 6px 0; border-left-width: 4px; }
+.pyramid.medium .header-line { font-size: 0.85rem; margin-bottom: 6px; }
+.pyramid.medium .ohlc { font-size: 0.75rem; padding: 4px 8px; }
+.pyramid.medium .momentum-summary { font-size: 0.7rem; margin-top: 6px; padding: 6px; }
+.pyramid.medium .children { margin-left: 20px; padding-left: 14px; margin-top: 8px; }
+.pyramid.large .block { padding: 18px; margin: 8px 0; border-left-width: 5px; }
+.pyramid.large .header-line { font-size: 0.9rem; margin-bottom: 8px; }
+.pyramid.large .ohlc { font-size: 0.8rem; padding: 6px 10px; }
+.pyramid.large .momentum-summary { font-size: 0.75rem; margin-top: 8px; padding: 8px; }
+.pyramid.large .children { margin-left: 24px; padding-left: 16px; margin-top: 10px; }
+.block {
+  background: linear-gradient(135deg, var(--card) 0%, #1a2436 100%);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 6px 0;
+  border-left: 4px solid #334155;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.block.green {
+  border-left-color: var(--green-border);
+  background: linear-gradient(135deg, var(--card) 0%, #15201a 100%);
+}
+.block.red {
+  border-left-color: var(--red-border);
+  background: linear-gradient(135deg, var(--card) 0%, #201515 100%);
+}
+.block.green:hover {
+  box-shadow: 0 6px 20px rgba(0, 211, 148, 0.2);
+  border-color: var(--green-border);
+  transform: translateY(-2px);
+}
+.block.red:hover {
+  box-shadow: 0 6px 20px rgba(255, 77, 107, 0.2);
+  border-color: var(--red-border);
+  transform: translateY(-2px);
+}
+.header-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.ohlc {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-weight: 400;
+}
+.momentum-summary {
+  font-size: 0.7rem;
+  color: var(--gray);
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-weight: 400;
+}
+.children {
+  margin-left: 20px;
+  border-left: 2px dashed var(--border);
+  padding-left: 14px;
+  margin-top: 8px;
+}
+.toggle {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 8px;
+  background: rgba(58, 134, 255, 0.1);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+  font-size: 0.75rem;
+  border: 1px solid rgba(58, 134, 255, 0.3);
+  font-weight: 500;
+}
+.toggle:hover { background: rgba(58, 134, 255, 0.2); }
+.hidden { display: none; }
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--gray);
+  font-size: 1rem;
+  background: var(--card);
+  border-radius: 12px;
+  margin: 16px;
+  border: 1px solid var(--border);
+}
+.update-info {
+  text-align: center;
+  margin: 16px;
+  padding: 12px;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 500;
+}
+/* ==================== CHART STYLES ==================== */
+.chart-container {
+  height: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  gap: 16px;
+}
+.chart-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 16px;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.timeframe-select, .chart-type-select {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  font-weight: 500;
+  min-width: 80px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 8L9 5' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+}
+.timeframe-select:hover, .chart-type-select:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.chart-type-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.color-pickers {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.color-picker label {
+  font-size: 0.75rem;
+  color: var(--gray);
+  white-space: nowrap;
+}
+.color-picker input[type="color"] {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--bg);
+  padding: 0;
+}
+.control-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.control-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  transform: translateY(-1px);
+}
+.control-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.current-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--green);
+  background: var(--success-bg);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--green-border);
+  white-space: nowrap;
+}
+.chart-status {
+  margin-left: auto;
+  color: var(--gray);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chart-area {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-height: 500px;
+}
+.indicators-panel {
+  width: 260px;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  gap: 14px;
+}
+.indicators-panel.collapsed {
+  width: 50px;
+  padding: 10px;
+  align-items: center;
+}
+.indicators-panel.collapsed > *:not(.panel-header) {
+  display: none;
+}
+.indicators-panel.collapsed .panel-header {
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.indicators-panel.collapsed .panel-header h3,
+.indicators-panel.collapsed .panel-toggle {
+  display: none;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.indicators-panel.collapsed .panel-header {
+  justify-content: center;
+}
+.panel-emoji {
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: none;
+}
+.indicators-panel.collapsed .panel-emoji {
+  display: block;
+}
+.panel-emoji:hover {
+  background: var(--accent-bg);
+}
+.panel-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex: 1;
+  text-align: center;
+}
+.indicators-panel.collapsed .panel-header h3 {
+  display: none;
+}
+.panel-toggle {
+  background: none;
+  border: none;
+  color: var(--gray);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel-toggle:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.indicators-panel.collapsed .panel-toggle {
+  display: none;
+}
+.indicators-dropdown-section {
+  margin-bottom: 6px;
+}
+.indicators-dropdown {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 8L9 5' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+}
+.indicators-dropdown:hover {
+  border-color: var(--accent);
+  background-color: rgba(58, 134, 255, 0.05);
+}
+.indicators-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 400px;
+}
+.no-indicators {
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.8rem;
+  padding: 20px;
+  font-style: italic;
+}
+.indicator-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+.indicator-item.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+.indicator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.indicator-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.indicator-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--gray);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.indicator-settings {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setting-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.setting-group label {
+  font-size: 0.7rem;
+  color: var(--gray);
+}
+.setting-group input {
+  width: 50px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-align: center;
+}
+.setting-group input[type="color"] {
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  border-radius: 3px;
+}
+.indicator-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.indicator-btn {
+  flex: 1;
+  padding: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.65rem;
+  transition: all 0.2s ease;
+}
+.indicator-btn:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+.indicator-btn.remove {
+  background: rgba(255, 77, 77, 0.1);
+  border-color: rgba(255, 77, 77, 0.3);
+}
+.indicator-btn.remove:hover {
+  background: rgba(255, 77, 77, 0.2);
+}
+.chart-wrapper {
+  flex: 1;
+  position: relative;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+#mainChart {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+.axis-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1002;
+  background: rgba(15, 23, 42, 0.95);
+  color: #E2E8F0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  border: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+.y-axis-indicator {
+  right: 10px;
+  transform: translateY(-50%);
+}
+.x-axis-indicator {
+  bottom: 10px;
+  transform: translateX(-50%);
+}
+/* ==================== NEW CSS FOR JAVASCRIPT FEATURES ==================== */
+/* Live Icon & Reloading States */
+.live-icon {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+.live-icon.pulsing {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.reloading-sign {
+  position: absolute;
+  top: 20px;
+  right: 60px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid var(--accent);
+  z-index: 100;
+}
+/* Pyramid Block Metrics & Progress Indicators */
+.block-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+.pips-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--gray);
+  font-weight: 500;
+}
+.progress-indicator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.progress-indicator.complete {
+  background: var(--success-bg);
+  color: var(--green);
+  border-color: var(--green-border);
+}
+.progress-indicator.partial {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.progress-indicator:not(.complete):not(.partial) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gray);
+}
+/* Crosshair Visual Styles */
+.crosshair-line {
+  position: absolute;
+  background: #F59E0B;
+  pointer-events: none;
+  z-index: 100;
+}
+.crosshair-vertical {
+  width: 1px;
+  height: 100%;
+  top: 0;
+}
+.crosshair-horizontal {
+  height: 1px;
+  width: 100%;
+  left: 0;
+}
+.crosshair-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #F59E0B;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 101;
+}
+/* Tooltip Locking Interface */
+.tooltip-locked {
+  border: 2px solid #F59E0B !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
+}
+.lock-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: #F59E0B;
+  color: #000;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  font-weight: bold;
+}
+/* Enhanced Chart Type Visuals */
+.candlestick-up {
+  background: var(--success-bg);
+  border-color: var(--green-border);
+}
+.candlestick-down {
+  background: var(--danger-bg);
+  border-color: var(--red-border);
+}
+/* Trend Line Colors */
+.trend-bull {
+  border-color: var(--green-border) !important;
+}
+.trend-bear {
+  border-color: var(--red-border) !important;
+}
+/* Keyboard Shortcuts Indicator */
+.shortcuts-help {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.75rem;
+  color: var(--gray);
+  z-index: 1000;
+  display: none;
+  max-width: 300px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.shortcuts-help.visible {
+  display: block;
+}
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  align-items: center;
+}
+.shortcut-key {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: 8px;
+  font-size: 0.7rem;
+  min-width: 60px;
+  text-align: center;
+}
+/* Enhanced Loading States */
+.polling-status {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  color: var(--gray);
+  z-index: 1000;
+  font-family: 'JetBrains Mono', monospace;
+}
+.polling-status.active {
+  border-color: var(--green-border);
+  color: var(--green);
+  background: var(--success-bg);
+}
+.polling-status.normal {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+/* Status Indicator */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-indicator.active {
+  background: var(--green);
+  animation: blink 2s infinite;
+}
+.status-indicator.normal {
+  background: var(--accent);
+}
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
 
-    <div id="pyramid-tab" class="tab-content active">
-      <div class="header">
-        <h1>🧠 MEGA FLOWZ - Professional Trading Dashboard</h1>
-        
-        <!-- ENHANCEMENT: Added live icon container -->
-        <div id="liveStatusContainer"></div>
-        
-        <!-- Pyramid Controls -->
-        <div class="pyramid-style-selector">
-          <div class="style-controls">
-            <!-- Pairs Dropdown - EUR/USD as default -->
-            <select id="pairsSelect" class="style-dropdown" onchange="changePair(this.value)">
-              <!-- Forex Major Pairs -->
-              <option value="EUR/USD">💶 EUR/USD</option>
-              <option value="GBP/USD">💷 GBP/USD</option>
-              <option value="USD/JPY">💴 USD/JPY</option>
-              <option value="USD/CHF">🇨🇭 USD/CHF</option>
-              <option value="AUD/USD">🇦🇺 AUD/USD</option>
-              <option value="USD/CAD">🇨🇦 USD/CAD</option>
-              <option value="NZD/USD">🇳🇿 NZD/USD</option>
-              
-              <!-- Forex Minor Pairs -->
-              <option value="EUR/GBP">💶/💷 EUR/GBP</option>
-              <option value="EUR/JPY">💶/💴 EUR/JPY</option>
-              <option value="GBP/JPY">💷/💴 GBP/JPY</option>
-              <option value="EUR/CAD">💶/🇨🇦 EUR/CAD</option>
-              <option value="AUD/JPY">🇦🇺/💴 AUD/JPY</option>
-              
-              <!-- Cryptocurrencies -->
-              <option value="BTC/USD">₿ Bitcoin/USD</option>
-              <option value="ETH/USD">🔷 Ethereum/USD</option>
-              <option value="ADA/USD">🟥 Cardano/USD</option>
-              <option value="SOL/USD">🟦 Solana/USD</option>
-              <option value="XRP/USD">⚡ Ripple/USD</option>
-              <option value="DOT/USD">🔴 Polkadot/USD</option>
-              <option value="DOGE/USD">🐶 Dogecoin/USD</option>
-              <option value="LTC/USD">🔶 Litecoin/USD</option>
-              <option value="BNB/USD">💎 Binance Coin/USD</option>
-              <option value="MATIC/USD">🔷 Polygon/USD</option>
-              
-              <!-- Commodities -->
-              <option value="XAU/USD">🥇 Gold/USD</option>
-              <option value="XAG/USD">🥈 Silver/USD</option>
-              <option value="XPT/USD">🔧 Platinum/USD</option>
-              <option value="XPD/USD">⚡ Palladium/USD</option>
-              
-              <!-- Indices -->
-              <option value="US30">🇺🇸 Dow Jones</option>
-              <option value="SPX500">🇺🇸 S&P 500</option>
-              <option value="NAS100">🇺🇸 NASDAQ</option>
-              <option value="GER40">🇩🇪 DAX 40</option>
-              <option value="UK100">🇬🇧 FTSE 100</option>
-              <option value="JP225">🇯🇵 Nikkei 225</option>
-            </select>
-            
-            <!-- Pyramid Style Dropdown -->
-            <select id="pyramidStyleSelect" class="style-dropdown" onchange="changePyramidStyle(this.value)">
-              <option value="scalper">⚡ Scalper (M15→M5→M1)</option>
-              <option value="intraday">📈 Intraday (H1→M15→M5→M1)</option>
-              <option value="swing">🔄 Swing (H4→H1→M15→M5→M1)</option>
-              <option value="daily" selected>📅 Daily (D1→H4→H1→M15→M5→M1)</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="info" id="status">🔄 Loading market data...</div>
-      </div>
-      
-      <div class="controls">
-        <button class="size-btn active" onclick="setPyramidSize('small')">📱 Compact</button>
-        <button class="size-btn" onclick="setPyramidSize('medium')">📊 Standard</button>
-        <button class="size-btn" onclick="setPyramidSize('large')">🖥️ Detailed</button>
-      </div>
-      
-      <div class="update-info" id="updateInfo"></div>
-      <div class="pyramid medium" id="pyramid"></div>
-    </div>
+/* ==================== CHART SYSTEM ENHANCEMENTS ==================== */
+/* Current Price Line */
+.current-price-line {
+    position: absolute;
+    height: 1px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.7;
+    transition: top 0.1s ease;
+}
 
-    <div id="chart-tab" class="tab-content">
-      <div class="chart-container">
-        <div class="chart-controls">
-          <!-- Timeframe Selection -->
-          <select id="timeframeSelect" class="timeframe-select" onchange="updateChartTimeframe()">
-            <option value="M1">M1</option>
-            <option value="M5">M5</option>
-            <option value="M15">M15</option>
-            <option value="H1" selected>H1</option>
-            <option value="H4">H4</option>
-            <option value="D1">D1</option>
-          </select>
-          
-          <!-- Chart Type -->
-          <div class="chart-type-section">
-            <select id="chartTypeSelect" class="chart-type-select" onchange="setChartType(this.value)">
-              <option value="line">📈 Line</option>
-              <option value="area">🟦 Area</option>
-              <!-- ENHANCEMENT: Added candlestick option to match JavaScript -->
-              <option value="candlestick">🕯️ Candlestick</option>
-              <option value="trend">🎯 Bull/Bear Trend</option>
-            </select>
-            
-            <!-- Dynamic Color Pickers -->
-            <div id="colorPickers" class="color-pickers">
-              <!-- Color pickers will be dynamically shown based on chart type -->
-            </div>
-          </div>
-          
-          <!-- Chart Controls -->
-          <button class="control-btn" onclick="toggleCrosshair()">⊕ Cross OFF</button>
-          <button class="control-btn" onclick="downloadChart()">💾 Save</button>
-          <button class="control-btn" onclick="zoomIn()">🔍+</button>
-          <button class="control-btn" onclick="zoomOut()">🔍-</button>
-          <button class="control-btn" onclick="resetZoom()">🔄</button>
-          
-          <!-- Current Price Display -->
-          <span class="current-price" id="currentPrice">--</span>
-          <span class="chart-status" id="chartStatus">Select TF</span>
-        </div>
-        
-        <div class="chart-area">
-          <!-- Enhanced Indicators Panel -->
-          <div class="indicators-panel" id="indicatorsPanel">
-            <div class="panel-header">
-              <span class="panel-emoji" onclick="toggleIndicatorsPanel()">📊</span>
-              <h3>Indicators & Settings</h3>
-              <button class="panel-toggle" onclick="toggleIndicatorsPanel()">◀</button>
-            </div>
-            
-            <!-- Indicators Dropdown -->
-            <div class="indicators-dropdown-section">
-              <select id="indicatorsDropdown" class="indicators-dropdown" onchange="addIndicatorFromDropdown(this.value)">
-                <option value="">+ Add Indicator</option>
-                <option value="sma">SMA</option>
-                <option value="ema">EMA</option>
-                <option value="rsi">RSI</option>
-                <option value="macd">MACD</option>
-                <option value="bollinger">Bollinger</option>
-                <option value="stochastic">Stochastic</option>
-                <option value="supportresistance">Support/Resistance</option>
-              </select>
-            </div>
-            
-            <!-- Active Indicators List -->
-            <div class="indicators-list" id="indicatorsList">
-              <!-- Active indicators with settings will be added here -->
-            </div>
-          </div>
-          
-          <!-- Main Chart Canvas with Axis Indicators Container -->
-          <div class="chart-wrapper">
-            <canvas id="mainChart"></canvas>
-            <!-- ENHANCEMENT: Added containers for dynamic chart elements -->
-            <div id="chartDynamicElements">
-              <!-- Chart shift handle, current price line, axis indicators will be inserted here by JavaScript -->
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+/* Chart Shift Handle */
+.chart-shift-handle {
+    position: absolute;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    background: rgba(226, 232, 240, 0.3);
+    cursor: col-resize;
+    z-index: 1001;
+    display: none;
+    border-left: 1px solid #E2E8F0;
+}
 
-    <div id="analysis-tab" class="tab-content">
-      <!-- Gauges Container -->
-      <div class="gauges-container" id="gauges-container">
-        <div class="gauge-row">
-          <div class="gauge-item">
-            <div class="gauge-title">Momentum</div>
-            <div class="speedometer-gauge" id="momentum-gauge">
-              <div class="gauge-background"></div>
-              <div class="gauge-needle" id="momentum-needle"></div>
-              <div class="gauge-value" id="momentum-value">50</div>
-            </div>
-            <div class="gauge-label" id="momentum-label">Neutral</div>
-          </div>
-          
-          <div class="gauge-item">
-            <div class="gauge-title">Volatility</div>
-            <div class="speedometer-gauge" id="volatility-gauge">
-              <div class="gauge-background"></div>
-              <div class="gauge-needle" id="volatility-needle"></div>
-              <div class="gauge-value" id="volatility-value">50</div>
-            </div>
-            <div class="gauge-label" id="volatility-label">Medium</div>
-          </div>
-          
-          <div class="gauge-item">
-            <div class="gauge-title">Strength</div>
-            <div class="speedometer-gauge" id="strength-gauge">
-              <div class="gauge-background"></div>
-              <div class="gauge-needle" id="strength-needle"></div>
-              <div class="gauge-value" id="strength-value">50</div>
-            </div>
-            <div class="gauge-label" id="strength-label">Moderate</div>
-          </div>
-          
-          <div class="gauge-item">
-            <div class="gauge-title">Risk</div>
-            <div class="speedometer-gauge" id="risk-gauge">
-              <div class="gauge-background"></div>
-              <div class="gauge-needle" id="risk-needle"></div>
-              <div class="gauge-value" id="risk-value">50</div>
-            </div>
-            <div class="gauge-label" id="risk-label">Medium</div>
-          </div>
-        </div>
-      </div>
+.chart-shift-handle.dragging {
+    background: rgba(226, 232, 240, 0.6);
+    display: block;
+}
 
-      <!-- Multi-Timeframe Strength -->
-      <div class="analysis-section" id="timeframe-strength-section">
-        <h3>📈 Multi-Timeframe Strength</h3>
-        <div class="timeframe-strength-container" id="timeframe-strength-container">
-          <!-- Timeframe strength bars will be populated here -->
-        </div>
-      </div>
+.chart-shift-handle:hover {
+    background: rgba(226, 232, 240, 0.4);
+    display: block;
+}
 
-      <!-- Indicator Consensus -->
-      <div class="analysis-section" id="indicator-consensus-section">
-        <h3>🎯 Indicator Consensus</h3>
-        <div class="consensus-container" id="consensus-container">
-          <div class="consensus-meters">
-            <div class="consensus-meter">
-              <div class="meter-label">Trend Indicators</div>
-              <div class="meter-bar">
-                <div class="meter-fill" id="trend-consensus-fill" style="width: 0%"></div>
-              </div>
-              <div class="meter-value" id="trend-consensus-value">0%</div>
-            </div>
-            <div class="consensus-meter">
-              <div class="meter-label">Momentum Indicators</div>
-              <div class="meter-bar">
-                <div class="meter-fill" id="momentum-consensus-fill" style="width: 0%"></div>
-              </div>
-              <div class="meter-value" id="momentum-consensus-value">0%</div>
-            </div>
-            <div class="consensus-meter">
-              <div class="meter-label">Volatility Indicators</div>
-              <div class="meter-bar">
-                <div class="meter-fill" id="volatility-consensus-fill" style="width: 0%"></div>
-              </div>
-              <div class="meter-value" id="volatility-consensus-value">0%</div>
-            </div>
-          </div>
-          <div class="consensus-summary" id="consensus-summary">
-            <div class="consensus-status">Analyzing indicator alignment...</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Market Structure -->
-      <div class="analysis-section" id="market-structure-section">
-        <h3>🏗️ Market Structure</h3>
-        <div class="structure-container" id="structure-container">
-          <div class="structure-levels">
-            <div class="levels-group">
-              <h4>Resistance Levels</h4>
-              <div class="levels-list" id="resistance-levels">
-                <!-- Resistance levels will be populated here -->
-              </div>
-            </div>
-            <div class="levels-group">
-              <h4>Support Levels</h4>
-              <div class="levels-list" id="support-levels">
-                <!-- Support levels will be populated here -->
-              </div>
-            </div>
-          </div>
-          <div class="structure-trend">
-            <div class="trend-indicator">
-              <span class="trend-label">Primary Trend:</span>
-              <span class="trend-value" id="primary-trend">Analyzing...</span>
-            </div>
-            <div class="trend-strength">
-              <span class="trend-label">Trend Strength:</span>
-              <div class="trend-bar">
-                <div class="trend-fill" id="trend-strength-fill" style="width: 0%"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Trading Setups -->
-      <div class="analysis-section" id="trading-setup-section">
-        <h3>💰 Trading Setups</h3>
-        <div class="setups-container" id="setups-container">
-          <div class="setup-cards" id="setup-cards">
-            <!-- Trading setup cards will be populated here -->
-          </div>
-          <div class="setup-metrics">
-            <div class="metric-item">
-              <span class="metric-label">Avg. Risk/Reward:</span>
-              <span class="metric-value" id="avg-risk-reward">1:1.5</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-label">Success Probability:</span>
-              <span class="metric-value" id="success-probability">65%</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-label">Market Condition:</span>
-              <span class="metric-value" id="market-condition">Trending</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Volume Analysis -->
-      <div class="analysis-section" id="volume-analysis-section">
-        <h3>📊 Volume Analysis</h3>
-        <div class="volume-container" id="volume-container">
-          <div class="volume-metrics">
-            <div class="volume-metric">
-              <div class="volume-label">Volume Trend</div>
-              <div class="volume-value" id="volume-trend">Neutral</div>
-            </div>
-            <div class="volume-metric">
-              <div class="volume-label">Volume vs Avg</div>
-              <div class="volume-value" id="volume-vs-avg">+15%</div>
-            </div>
-            <div class="volume-metric">
-              <div class="volume-label">Volume Confirmation</div>
-              <div class="volume-value" id="volume-confirmation">Strong</div>
-            </div>
-          </div>
-          <div class="volume-bars">
-            <div class="volume-bar-container">
-              <div class="volume-bar-label">D1</div>
-              <div class="volume-bar">
-                <div class="volume-bar-fill" id="volume-d1" style="height: 0%"></div>
-              </div>
-            </div>
-            <div class="volume-bar-container">
-              <div class="volume-bar-label">H4</div>
-              <div class="volume-bar">
-                <div class="volume-bar-fill" id="volume-h4" style="height: 0%"></div>
-              </div>
-            </div>
-            <div class="volume-bar-container">
-              <div class="volume-bar-label">H1</div>
-              <div class="volume-bar">
-                <div class="volume-bar-fill" id="volume-h1" style="height: 0%"></div>
-              </div>
-            </div>
-            <div class="volume-bar-container">
-              <div class="volume-bar-label">M15</div>
-              <div class="volume-bar">
-                <div class="volume-bar-fill" id="volume-m15" style="height: 0%"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Technical Summary & Signals -->
-      <div class="analysis-section">
-        <h3>📊 Technical Summary</h3>
-        <div id="technicalSummary">Loading analysis...</div>
-      </div>
-      <div class="analysis-section">
-        <h3>🎯 Trading Signals</h3>
-        <div class="signal-list" id="tradingSignals"></div>
-      </div>
-    </div>
-
-    <div id="alerts-tab" class="tab-content">
-      <div class="alerts-container">
-        <div class="analysis-section">
-          <h3>🔔 Active Alerts</h3>
-          <div id="activeAlerts">
-            <div class="no-alerts">
-              <div class="no-alerts-icon">🔕</div>
-              <div class="no-alerts-text">No active alerts</div>
-              <div class="no-alerts-subtext">Alerts will appear here when triggered</div>
-            </div>
-          </div>
-        </div>
-        <div class="analysis-section">
-          <h3>⚙️ Alert Settings</h3>
-          <div id="alertSettings">
-            <div class="alert-setting-group">
-              <div class="alert-setting-item">
-                <input type="checkbox" id="rsiAlert" checked onchange="toggleAlertSetting('rsiAlerts', this.checked)">
-                <label for="rsiAlert">RSI Overbought/Oversold (70/30)</label>
-              </div>
-              <div class="alert-setting-item">
-                <input type="checkbox" id="priceAlert" onchange="toggleAlertSetting('priceAlerts', this.checked)">
-                <label for="priceAlert">Key Price Level Breaks</label>
-              </div>
-              <div class="alert-setting-item">
-                <input type="checkbox" id="volumeAlert" checked onchange="toggleAlertSetting('volumeAlerts', this.checked)">
-                <label for="volumeAlert">Volume Spikes (2x Average)</label>
-              </div>
-              <div class="alert-setting-item">
-                <input type="checkbox" id="momentumAlert" checked onchange="toggleAlertSetting('momentumAlerts', this.checked)">
-                <label for="momentumAlert">Momentum Shifts</label>
-              </div>
-            </div>
-            <div class="alert-actions-global">
-              <button class="alert-btn test" onclick="testAlertSystem()">Test Alert System</button>
-              <button class="alert-btn clear" onclick="clearAllAlerts()">Clear All Alerts</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =============================================================== -->
-  <!-- ✅ CORRECTED SCRIPT LOADING ORDER - APP.JS FIRST -->
-  <!-- =============================================================== -->
-  
-  <!-- Load main unified script FIRST -->
-  <script src="app.js"></script>
-  
-  <!-- Then load modules -->
-  <script src="analysis.js"></script>
-  <script src="alerts.js"></script>
-</body>
-</html>
+/* ==================== RESPONSIVE DESIGN ==================== */
+@media (max-width: 768px) {
+  .header {
+    margin: 10px;
+    padding: 16px;
+  }
+ 
+  .header h1 {
+    font-size: 1.5rem;
+  }
+ 
+  .style-controls {
+    flex-direction: column;
+    gap: 6px;
+  }
+ 
+  .style-dropdown {
+    min-width: 160px;
+  }
+ 
+  .tabs-header {
+    padding: 0 8px;
+  }
+ 
+  .tab {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+  }
+ 
+  .chart-controls {
+    gap: 6px;
+    padding: 12px;
+  }
+ 
+  .timeframe-select, .chart-type-select, .control-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    min-width: auto;
+  }
+ 
+  .chart-type-section {
+    flex-direction: column;
+    gap: 6px;
+  }
+ 
+  .color-pickers {
+    justify-content: center;
+  }
+ 
+  .chart-area {
+    flex-direction: column;
+  }
+ 
+  .indicators-panel {
+    width: 100%;
+    height: 250px;
+  }
+ 
+  .indicators-panel.collapsed {
+    width: 100%;
+    height: 50px;
+  }
+ 
+  .children {
+    margin-left: 12px;
+    padding-left: 10px;
+  }
+  /* Responsive updates for new elements */
+  .block-metrics {
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+ 
+  .live-icon, .reloading-sign {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 4px 0;
+  }
+ 
+  .shortcuts-help {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+ 
+  .polling-status {
+    bottom: 5px;
+    left: 5px;
+    font-size: 0.65rem;
+    padding: 4px 8px;
+  }
+}
+/* Dropdown Styling */
+select, option {
+  background-color: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+select:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(58, 134, 255, 0.1) !important;
+}
+/* Scrollbar Styling */
+.indicators-list::-webkit-scrollbar {
+  width: 4px;
+}
+.indicators-list::-webkit-scrollbar-track {
+  background: var(--bg);
+  border-radius: 2px;
+}
+.indicators-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+.indicators-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+/* Additional scrollbar styling for other elements */
+.tab-content::-webkit-scrollbar {
+  width: 6px;
+}
+.tab-content::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+.tab-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.tab-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
