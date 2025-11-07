@@ -686,26 +686,23 @@ function switchTab(tabName) {
 
 
 // ==================== CHART SYSTEM ====================
-
 // Chart rendering and datasets
 function renderProfessionalChart(chartData, timeframe, symbol, indicators, indicators_data) {
     const ctx = document.getElementById('mainChart').getContext('2d');
-    
+   
     if (currentChart) currentChart.destroy();
-
     currentIndicatorValues = indicators || {};
-    
+   
     const professionalTheme = {
         primary: chartColors.line,
         background: chartColors.areaFill,
         grid: '#1E293B',
         text: '#F1F5F9',
         textSecondary: '#94A3B8',
-        accent: '#8B5CF6'
+        accent: '#8B5CF6',
+        axisBorder: '#334155'
     };
-
     let datasets = [];
-
     if (currentChartType === 'line') {
         datasets = createLineDataset(chartData, symbol, professionalTheme);
     } else if (currentChartType === 'area') {
@@ -715,38 +712,35 @@ function renderProfessionalChart(chartData, timeframe, symbol, indicators, indic
     } else if (currentChartType === 'trend') {
         datasets = createLineDataset(chartData, symbol, professionalTheme);
     }
-
     datasets = datasets.concat(createIndicatorDatasets(indicators_data, professionalTheme));
-
     const chartType = currentChartType === 'candlestick' ? 'candlestick' : 'line';
-    
+   
     currentChart = new Chart(ctx, {
         type: chartType,
         data: { datasets: datasets },
         options: getEnhancedChartOptions(timeframe, professionalTheme)
     });
-
-    initializeAxisIndicators();
-    initializeCurrentPriceLine();
-    initializeChartShiftTriangle();
+    initializeCurrentPriceLevel();
+    initializeCrosshairDisplay();
     addCrosshairListeners();
+    initializeChartScroll();
     renderIndicatorsList();
-    
+   
     const latestPrice = chartData.length > 0 ? chartData[chartData.length - 1].y : 0;
     updateCurrentPrice(latestPrice);
-    updateCurrentPriceLine(latestPrice, 'neutral');
-    
+    updateCurrentPriceLevel(latestPrice, 'neutral');
+   
     console.log(`✅ Chart rendered: ${symbol} ${timeframe} (${currentChartType})`);
 }
 
 function loadChart(timeframe = 'H1') {
     const chartStatus = document.getElementById('chartStatus');
     if (!chartStatus) return;
-    
+   
     chartStatus.textContent = '🔄 Loading...';
-    
+   
     const indicatorParams = buildIndicatorParameters();
-    
+   
     fetch(`/api/chart-data/${timeframe}?pair=${currentPair}&pyramid_style=${currentPyramidStyle}${indicatorParams}`)
         .then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -757,11 +751,17 @@ function loadChart(timeframe = 'H1') {
                 chartStatus.textContent = `❌ ${data.error}`;
                 return;
             }
-            
+           
+            // Validate chart data before rendering
+            if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+                chartStatus.textContent = '❌ No chart data received';
+                return;
+            }
+           
             renderProfessionalChart(data.data, timeframe, currentPair, data.indicators, data.indicators_data);
             chartStatus.textContent = `✅ ${currentPair} ${timeframe}`;
             currentTimeframe = timeframe;
-            
+           
             if (lastClickedPyramidBlock) {
                 setTimeout(() => {
                     triggerTooltipAtTime(lastClickedPyramidBlock.time);
@@ -779,7 +779,7 @@ function buildIndicatorParameters() {
     let params = '';
     activeIndicators.forEach((config, indicatorId) => {
         const baseType = indicatorId.split('_')[0];
-        
+       
         switch(baseType) {
             case 'sma': case 'ema': case 'rsi':
                 params += `&${baseType}_period=${config.period}`;
@@ -794,10 +794,10 @@ function buildIndicatorParameters() {
                 params += `&${baseType}_k=${config.kPeriod}&${baseType}_k_smooth=${config.kSmooth}&${baseType}_d_smooth=${config.dSmooth}`;
                 break;
         }
-        
+       
         params += `&${baseType}_instance=${config.instanceNumber}`;
     });
-    
+   
     return params;
 }
 
@@ -846,11 +846,11 @@ function createAreaDataset(priceData, symbol, theme) {
 function createIndicatorDatasets(indicators_data, theme) {
     const datasets = [];
     if (!indicators_data) return datasets;
-    
+   
     activeIndicators.forEach((config, indicatorId) => {
         if (!config.visible) return;
         const baseType = indicatorId.split('_')[0];
-        
+       
         switch(baseType) {
             case 'bollinger':
                 if (indicators_data.bollinger) {
@@ -878,7 +878,7 @@ function createIndicatorDatasets(indicators_data, theme) {
             default:
                 const instanceNumber = config.instanceNumber;
                 const dataKeys = [`${baseType}_${config.period}`, `${baseType}_${instanceNumber}`, baseType, `${baseType}_20`, `${baseType}_12`];
-                
+               
                 let indicatorData = null;
                 for (const key of dataKeys) {
                     if (indicators_data[key]) {
@@ -886,7 +886,7 @@ function createIndicatorDatasets(indicators_data, theme) {
                         break;
                     }
                 }
-                
+               
                 if (indicatorData) {
                     datasets.push({
                         label: `${config.name} #${instanceNumber}`, data: indicatorData, borderColor: config.color, borderWidth: 1.5,
@@ -899,7 +899,7 @@ function createIndicatorDatasets(indicators_data, theme) {
     return datasets;
 }
 
-// Chart options and configuration
+// Chart options and configuration with better axis frames
 function getEnhancedChartOptions(timeframe, theme) {
     return {
         responsive: true,
@@ -914,7 +914,7 @@ function getEnhancedChartOptions(timeframe, theme) {
                 display: false
             },
             tooltip: {
-                enabled: false, // Disable hover tooltips
+                enabled: false,
                 mode: 'nearest',
                 intersect: false,
                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -953,7 +953,7 @@ function getEnhancedChartOptions(timeframe, theme) {
             zoom: {
                 zoom: {
                     drag: {
-                        enabled: false, // Disabled by default, enabled when + button clicked
+                        enabled: false,
                         modifierKey: null
                     },
                     wheel: {
@@ -985,20 +985,25 @@ function getEnhancedChartOptions(timeframe, theme) {
                     color: theme.grid,
                     drawBorder: true,
                     border: {
-                        color: theme.grid,
-                        width: 1
+                        color: theme.axisBorder,
+                        width: 2
                     }
                 },
                 ticks: {
-                    color: theme.textSecondary,
+                    color: theme.text,
                     maxRotation: 0,
                     autoSkip: true,
-                    maxTicksLimit: 8
+                    maxTicksLimit: 8,
+                    padding: 8,
+                    font: {
+                        size: 11,
+                        weight: '500'
+                    }
                 },
-                border: { 
+                border: {
                     display: true,
-                    color: theme.grid,
-                    width: 1
+                    color: theme.axisBorder,
+                    width: 2
                 }
             },
             y: {
@@ -1007,19 +1012,24 @@ function getEnhancedChartOptions(timeframe, theme) {
                     color: theme.grid,
                     drawBorder: true,
                     border: {
-                        color: theme.grid,
-                        width: 1
+                        color: theme.axisBorder,
+                        width: 2
                     }
                 },
                 ticks: {
-                    color: theme.textSecondary,
+                    color: theme.text,
                     callback: (value) => value.toFixed(5),
-                    maxTicksLimit: 10
+                    maxTicksLimit: 10,
+                    padding: 8,
+                    font: {
+                        size: 11,
+                        weight: '500'
+                    }
                 },
-                border: { 
+                border: {
                     display: true,
-                    color: theme.grid,
-                    width: 1
+                    color: theme.axisBorder,
+                    width: 2
                 }
             },
             y2: {
@@ -1027,11 +1037,20 @@ function getEnhancedChartOptions(timeframe, theme) {
                 position: 'left',
                 grid: { drawOnChartArea: false },
                 ticks: {
-                    color: '#E2E8F0',
+                    color: theme.text,
                     callback: (value) => value.toFixed(2),
-                    maxTicksLimit: 5
+                    maxTicksLimit: 5,
+                    padding: 8,
+                    font: {
+                        size: 11,
+                        weight: '500'
+                    }
                 },
-                border: { display: false },
+                border: {
+                    display: true,
+                    color: theme.axisBorder,
+                    width: 2
+                },
                 min: 0,
                 max: 100
             }
@@ -1039,309 +1058,285 @@ function getEnhancedChartOptions(timeframe, theme) {
     };
 }
 
-// Current Price Line System
-function initializeCurrentPriceLine() {
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    if (!chartWrapper) return;
+// Chart Scroll Control
+function initializeChartScroll() {
+    const canvas = document.getElementById('mainChart');
+    if (!canvas) return;
     
-    const existingLine = document.getElementById('currentPriceLine');
-    if (existingLine) existingLine.remove();
-    
-    const currentPriceLine = document.createElement('div');
-    currentPriceLine.id = 'currentPriceLine';
-    currentPriceLine.className = 'current-price-line';
-    currentPriceLine.style.display = 'none';
-    
-    chartWrapper.appendChild(currentPriceLine);
+    canvas.addEventListener('wheel', function(event) {
+        if (!currentChart) return;
+        
+        event.preventDefault();
+        
+        // Only allow horizontal scrolling (left/right)
+        const xScale = currentChart.scales.x;
+        if (!xScale) return;
+        
+        const currentMin = xScale.min;
+        const currentMax = xScale.max;
+        const range = currentMax - currentMin;
+        const scrollSpeed = range * 0.1; // 10% scroll per wheel tick
+        
+        if (event.deltaY > 0) {
+            // Scroll right (forward in time)
+            currentChart.options.scales.x.min = currentMin + scrollSpeed;
+            currentChart.options.scales.x.max = currentMax + scrollSpeed;
+        } else {
+            // Scroll left (back in time)
+            currentChart.options.scales.x.min = currentMin - scrollSpeed;
+            currentChart.options.scales.x.max = currentMax - scrollSpeed;
+        }
+        
+        currentChart.update('none');
+    });
 }
 
-function updateCurrentPriceLine(price, direction) {
-    const currentPriceLine = document.getElementById('currentPriceLine');
-    if (!currentPriceLine || !currentChart) return;
-    
+// Current Price Level System - FIXED
+function initializeCurrentPriceLevel() {
+    const chartWrapper = document.querySelector('.chart-wrapper');
+    if (!chartWrapper) return;
+   
+    const existingLine = document.getElementById('currentPriceLevel');
+    if (existingLine) existingLine.remove();
+   
+    const currentPriceLevel = document.createElement('div');
+    currentPriceLevel.id = 'currentPriceLevel';
+    currentPriceLevel.className = 'current-price-level';
+    currentPriceLevel.style.display = 'none';
+   
+    chartWrapper.appendChild(currentPriceLevel);
+}
+
+function updateCurrentPriceLevel(price, direction) {
+    const currentPriceLevel = document.getElementById('currentPriceLevel');
+    if (!currentPriceLevel || !currentChart) return;
+   
     const chartArea = currentChart.chartArea;
     if (!chartArea) return;
-    
+   
     const yScale = currentChart.scales.y;
     const pixel = yScale.getPixelForValue(price);
-    
+   
     if (pixel >= chartArea.top && pixel <= chartArea.bottom) {
-        currentPriceLine.style.display = 'block';
-        currentPriceLine.style.top = `${pixel}px`;
-        currentPriceLine.style.left = `${chartArea.left}px`;
-        currentPriceLine.style.width = `${chartArea.right - chartArea.left}px`;
-        currentPriceLine.style.backgroundColor = direction === 'up' ? 'var(--green)' : 'var(--red)';
+        currentPriceLevel.style.display = 'block';
+        currentPriceLevel.style.top = `${pixel}px`;
+        currentPriceLevel.style.left = `${chartArea.left}px`;
+        currentPriceLevel.style.width = `${chartArea.right - chartArea.left}px`;
+        currentPriceLevel.style.height = '1px';
+       
+        // Set color based on direction
+        if (direction === 'up') {
+            currentPriceLevel.style.backgroundColor = chartColors.bull;
+            currentPriceLevel.classList.add('bull');
+            currentPriceLevel.classList.remove('bear', 'neutral');
+        } else if (direction === 'down') {
+            currentPriceLevel.style.backgroundColor = chartColors.bear;
+            currentPriceLevel.classList.add('bear');
+            currentPriceLevel.classList.remove('bull', 'neutral');
+        } else {
+            currentPriceLevel.style.backgroundColor = chartColors.line;
+            currentPriceLevel.classList.add('neutral');
+            currentPriceLevel.classList.remove('bull', 'bear');
+        }
+       
+        // Update Y-axis price box
+        updateYAxisPriceBox(price, direction);
     } else {
-        currentPriceLine.style.display = 'none';
+        currentPriceLevel.style.display = 'none';
     }
 }
 
-// MT5 Style Chart Shift Triangle System
-let chartShiftTriangle = null;
-let isDraggingShift = false;
-let chartShiftAmount = 0;
-const MAX_SHIFT_SPACE = 0.3;
-
-function initializeChartShiftTriangle() {
+function updateYAxisPriceBox(price, direction) {
     const chartWrapper = document.querySelector('.chart-wrapper');
     if (!chartWrapper) return;
-    
-    const existingTriangle = document.getElementById('chartShiftTriangle');
-    if (existingTriangle) existingTriangle.remove();
-    
-    chartShiftTriangle = document.createElement('div');
-    chartShiftTriangle.id = 'chartShiftTriangle';
-    chartShiftTriangle.className = 'chart-shift-triangle';
-    chartShiftTriangle.innerHTML = '▼';
-    
-    chartWrapper.appendChild(chartShiftTriangle);
-    setupShiftTriangleDrag();
-    
-    updateChartShift();
-}
-
-function setupShiftTriangleDrag() {
-    if (!chartShiftTriangle) return;
-    
-    chartShiftTriangle.addEventListener('mousedown', startShiftDrag);
-    document.addEventListener('mousemove', handleShiftDrag);
-    document.addEventListener('mouseup', stopShiftDrag);
-}
-
-function startShiftDrag(e) {
-    e.preventDefault();
-    isDraggingShift = true;
-    chartShiftTriangle.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
-}
-
-function handleShiftDrag(e) {
-    if (!isDraggingShift || !currentChart) return;
-    
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    const rect = chartWrapper.getBoundingClientRect();
-    const clientX = e.clientX;
-    
-    if (!clientX) return;
-    
-    const relativeX = (clientX - rect.left) / rect.width;
-    chartShiftAmount = Math.max(0, Math.min(MAX_SHIFT_SPACE, 1 - relativeX));
-    
-    updateChartShift();
-    updateShiftPriceTimeDisplay(e);
-}
-
-function stopShiftDrag() {
-    isDraggingShift = false;
-    if (chartShiftTriangle) {
-        chartShiftTriangle.classList.remove('dragging');
+   
+    let priceBox = document.getElementById('yAxisPriceBox');
+    if (!priceBox) {
+        priceBox = document.createElement('div');
+        priceBox.id = 'yAxisPriceBox';
+        priceBox.className = 'y-axis-price-box';
+        chartWrapper.appendChild(priceBox);
     }
-    document.body.style.cursor = '';
-    
-    // Hide shift display when done dragging
-    const shiftDisplay = document.getElementById('chartShiftDisplay');
-    if (shiftDisplay) {
-        shiftDisplay.style.display = 'none';
-    }
-}
-
-function updateChartShift() {
-    if (!currentChart) return;
-    
-    const chartArea = currentChart.chartArea;
-    if (chartArea && chartShiftTriangle) {
-        const handleX = chartArea.right - (chartArea.right - chartArea.left) * chartShiftAmount;
-        chartShiftTriangle.style.left = `${handleX}px`;
-        chartShiftTriangle.style.top = `${chartArea.top}px`;
-        chartShiftTriangle.style.display = 'block';
-    }
-}
-
-function updateShiftPriceTimeDisplay(e) {
-    if (!currentChart || !isDraggingShift) return;
-    
+   
+    priceBox.textContent = price.toFixed(5);
+    priceBox.style.display = 'block';
+   
+    // Position on Y-axis
     const chartArea = currentChart.chartArea;
     const yScale = currentChart.scales.y;
-    const xScale = currentChart.scales.x;
-    
-    if (!chartArea || !yScale || !xScale) return;
-    
-    // Get price and time at current drag position
-    const rect = document.querySelector('.chart-wrapper').getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
-    const price = yScale.max - ((boundedY - chartArea.top) / (chartArea.bottom - chartArea.top)) * (yScale.max - yScale.min);
-    
-    const x = e.clientX - rect.left;
-    const timeValue = xScale.getValueForPixel(x);
-    const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    }) : '';
-    
-    // Create or update shift display
-    let shiftDisplay = document.getElementById('chartShiftDisplay');
-    if (!shiftDisplay) {
-        shiftDisplay = document.createElement('div');
-        shiftDisplay.id = 'chartShiftDisplay';
-        shiftDisplay.className = 'chart-shift-display';
-        document.querySelector('.chart-wrapper').appendChild(shiftDisplay);
+    const pixel = yScale.getPixelForValue(price);
+   
+    priceBox.style.top = `${pixel - 10}px`;
+    priceBox.style.right = '0px';
+   
+    // Set color based on direction
+    if (direction === 'up') {
+        priceBox.style.backgroundColor = chartColors.bull;
+        priceBox.style.color = '#000';
+    } else if (direction === 'down') {
+        priceBox.style.backgroundColor = chartColors.bear;
+        priceBox.style.color = '#FFF';
+    } else {
+        priceBox.style.backgroundColor = chartColors.line;
+        priceBox.style.color = '#FFF';
     }
-    
-    shiftDisplay.innerHTML = `${price.toFixed(5)}<br>${timeText}`;
-    shiftDisplay.style.left = `${e.clientX + 10}px`;
-    shiftDisplay.style.top = `${e.clientY - 30}px`;
-    shiftDisplay.style.display = 'block';
 }
 
-// Zoom System with Mode Activation
+// Enhanced Zoom System with Active State - FIXED
 let isZoomModeActive = false;
+let currentZoomMode = null;
+let currentZoomLevel = 2;
 
 function zoomIn() {
     if (!currentChart) return;
-    
-    // Activate zoom mode
-    isZoomModeActive = true;
-    currentChart.options.plugins.zoom.zoom.drag.enabled = true;
-    currentChart.update('none');
-    
-    // Update button state
-    const zoomBtn = document.querySelector('.control-btn');
-    if (zoomBtn && zoomBtn.textContent.includes('🔍+')) {
-        zoomBtn.innerHTML = '🔍+ ACTIVE';
-        zoomBtn.classList.add('active');
+   
+    // Toggle active state
+    if (isZoomModeActive && currentZoomMode === 'in') {
+        // Deactivate
+        isZoomModeActive = false;
+        currentZoomMode = null;
+        currentChart.options.plugins.zoom.zoom.drag.enabled = false;
+        updateZoomButtonState('reset');
+    } else {
+        // Activate
+        isZoomModeActive = true;
+        currentZoomMode = 'in';
+        currentChart.options.plugins.zoom.zoom.drag.enabled = true;
+        updateZoomButtonState('in');
     }
+   
+    currentChart.update('none');
 }
 
 function zoomOut() {
     if (!currentChart) return;
-    
-    // Just zoom out, don't change mode
-    currentZoomLevel = Math.max(0, currentZoomLevel - 1);
-    applyFixedZoom();
+   
+    // Toggle active state
+    if (isZoomModeActive && currentZoomMode === 'out') {
+        // Deactivate
+        isZoomModeActive = false;
+        currentZoomMode = null;
+        currentChart.options.plugins.zoom.zoom.drag.enabled = false;
+        updateZoomButtonState('reset');
+    } else {
+        // Activate
+        isZoomModeActive = true;
+        currentZoomMode = 'out';
+        currentChart.options.plugins.zoom.zoom.drag.enabled = true;
+        updateZoomButtonState('out');
+    }
+   
+    currentChart.update('none');
 }
 
 function resetZoom() {
     if (!currentChart) return;
-    
-    // Reset zoom and deactivate mode
+   
     isZoomModeActive = false;
+    currentZoomMode = null;
     currentZoomLevel = 2;
     currentChart.resetZoom();
     currentChart.options.plugins.zoom.zoom.drag.enabled = false;
     currentChart.update('none');
-    
-    // Update button state
-    const zoomBtn = document.querySelector('.control-btn');
-    if (zoomBtn && zoomBtn.textContent.includes('ACTIVE')) {
-        zoomBtn.innerHTML = '🔍+';
-        zoomBtn.classList.remove('active');
+   
+    updateZoomButtonState('reset');
+}
+
+function updateZoomButtonState(mode) {
+    const zoomInBtn = document.querySelector('.control-btn');
+    const zoomOutBtn = document.querySelectorAll('.control-btn')[2];
+   
+    if (mode === 'in') {
+        if (zoomInBtn && zoomInBtn.textContent.includes('🔍+')) {
+            zoomInBtn.classList.add('active');
+        }
+        if (zoomOutBtn && zoomOutBtn.classList.contains('active')) {
+            zoomOutBtn.classList.remove('active');
+        }
+    } else if (mode === 'out') {
+        if (zoomOutBtn && zoomOutBtn.textContent.includes('🔍-')) {
+            zoomOutBtn.classList.add('active');
+        }
+        if (zoomInBtn && zoomInBtn.classList.contains('active')) {
+            zoomInBtn.classList.remove('active');
+        }
+    } else if (mode === 'reset') {
+        if (zoomInBtn && zoomInBtn.classList.contains('active')) {
+            zoomInBtn.classList.remove('active');
+        }
+        if (zoomOutBtn && zoomOutBtn.classList.contains('active')) {
+            zoomOutBtn.classList.remove('active');
+        }
     }
 }
 
-let currentZoomLevel = 2;
-const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
-
-function applyFixedZoom() {
-    if (!currentChart) return;
-    
-    const zoomMultiplier = ZOOM_LEVELS[currentZoomLevel];
-    currentChart.zoom(zoomMultiplier);
-}
-
-// Enhanced Crosshair System
-function initializeAxisIndicators() {
-    if (axisIndicators.yIndicator) axisIndicators.yIndicator.remove();
-    if (axisIndicators.xIndicator) axisIndicators.xIndicator.remove();
-    
+// Enhanced Crosshair System with Fixed Display - FIXED
+function initializeCrosshairDisplay() {
     const chartWrapper = document.querySelector('.chart-wrapper');
     if (!chartWrapper) return;
-    
-    const yIndicator = document.createElement('div');
-    yIndicator.className = 'axis-indicator y-axis-indicator';
-    yIndicator.id = 'yAxisIndicator';
-    yIndicator.style.display = 'none';
-    
-    const xIndicator = document.createElement('div');
-    xIndicator.className = 'axis-indicator x-axis-indicator';
-    xIndicator.id = 'xAxisIndicator';
-    xIndicator.style.display = 'none';
-    
-    chartWrapper.appendChild(yIndicator);
-    chartWrapper.appendChild(xIndicator);
-    
-    axisIndicators.yIndicator = yIndicator;
-    axisIndicators.xIndicator = xIndicator;
-}
-
-function updateAxisIndicators(x, y, price, time) {
-    if (!axisIndicators.yIndicator || !axisIndicators.xIndicator) return;
-    
-    const chartArea = currentChart?.chartArea;
-    if (!chartArea) return;
-    
-    // Keep indicators within chart bounds
-    const boundedX = Math.max(chartArea.left, Math.min(chartArea.right, x));
-    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
-    
-    if (price !== null && boundedY >= chartArea.top && boundedY <= chartArea.bottom) {
-        axisIndicators.yIndicator.textContent = price.toFixed(5);
-        axisIndicators.yIndicator.style.top = `${boundedY}px`;
-        axisIndicators.yIndicator.style.right = '0px';
-        axisIndicators.yIndicator.style.display = 'block';
-    } else {
-        axisIndicators.yIndicator.style.display = 'none';
-    }
-    
-    if (time && boundedX >= chartArea.left && boundedX <= chartArea.right) {
-        axisIndicators.xIndicator.textContent = time;
-        axisIndicators.xIndicator.style.left = `${boundedX}px`;
-        axisIndicators.xIndicator.style.bottom = '0px';
-        axisIndicators.xIndicator.style.display = 'block';
-    } else {
-        axisIndicators.xIndicator.style.display = 'none';
+   
+    // Remove old axis indicators
+    if (axisIndicators.yIndicator) axisIndicators.yIndicator.remove();
+    if (axisIndicators.xIndicator) axisIndicators.xIndicator.remove();
+   
+    // Create fixed crosshair display
+    let crosshairDisplay = document.getElementById('crosshairDisplay');
+    if (!crosshairDisplay) {
+        crosshairDisplay = document.createElement('div');
+        crosshairDisplay.id = 'crosshairDisplay';
+        crosshairDisplay.className = 'crosshair-display';
+        crosshairDisplay.style.display = 'none';
+        chartWrapper.appendChild(crosshairDisplay);
     }
 }
 
-function hideAxisIndicators() {
-    if (axisIndicators.yIndicator) axisIndicators.yIndicator.style.display = 'none';
-    if (axisIndicators.xIndicator) axisIndicators.xIndicator.style.display = 'none';
+function updateCrosshairDisplay(price, time) {
+    const crosshairDisplay = document.getElementById('crosshairDisplay');
+    if (!crosshairDisplay) return;
+   
+    if (price !== null && time) {
+        crosshairDisplay.innerHTML = `
+            <div class="crosshair-price">${price.toFixed(5)}</div>
+            <div class="crosshair-time">${time}</div>
+        `;
+        crosshairDisplay.style.display = 'block';
+       
+        // Position in top-left corner
+        const chartArea = currentChart?.chartArea;
+        if (chartArea) {
+            crosshairDisplay.style.top = `${chartArea.top + 10}px`;
+            crosshairDisplay.style.left = `${chartArea.left + 10}px`;
+        }
+    } else {
+        crosshairDisplay.style.display = 'none';
+    }
+}
+
+function hideCrosshairDisplay() {
+    const crosshairDisplay = document.getElementById('crosshairDisplay');
+    if (crosshairDisplay) {
+        crosshairDisplay.style.display = 'none';
+    }
 }
 
 function addCrosshairListeners() {
     const canvas = document.getElementById('mainChart');
     if (!canvas) return;
-
-    crosshairVisible = false;
-    crosshairX = 0;
-    crosshairY = 0;
-    crosshairPrice = null;
-
+   
     canvas.addEventListener('mousemove', function(event) {
-        if (tooltipLocked) return;
-        if (!crosshairEnabled || !currentChart) return;
-        
+        if (tooltipLocked || !crosshairEnabled || !currentChart) return;
+       
         const rect = canvas.getBoundingClientRect();
-        crosshairX = event.clientX - rect.left;
-        crosshairY = event.clientY - rect.top;
-        crosshairVisible = true;
-        
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+       
         const chartArea = currentChart.chartArea;
         const yScale = currentChart.scales.y;
-        
-        if (yScale && chartArea) {
-            const pixelRange = chartArea.bottom - chartArea.top;
-            const valueRange = yScale.max - yScale.min;
-            const value = yScale.max - ((crosshairY - chartArea.top) / pixelRange) * valueRange;
-            crosshairPrice = value;
-            
-            updateCurrentPrice(value);
-            
-            const xScale = currentChart.scales.x;
-            const timeValue = xScale.getValueForPixel(crosshairX);
+        const xScale = currentChart.scales.x;
+       
+        if (yScale && xScale && chartArea) {
+            const price = yScale.getValueForPixel(y);
+            const timeValue = xScale.getValueForPixel(x);
             const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -1349,20 +1344,19 @@ function addCrosshairListeners() {
                 minute: '2-digit',
                 hour12: false
             }) : '';
-            
-            updateAxisIndicators(crosshairX, crosshairY, value, timeText);
+           
+            updateCrosshairDisplay(price, timeText);
+            updateCurrentPrice(price);
         }
-        
+       
         if (currentChart) currentChart.draw();
     });
-
+   
     canvas.addEventListener('mouseleave', function() {
-        crosshairVisible = false;
-        crosshairPrice = null;
-        hideAxisIndicators();
+        hideCrosshairDisplay();
         if (currentChart) currentChart.draw();
     });
-
+   
     if (currentChart) {
         const originalDraw = currentChart.draw;
         currentChart.draw = function() {
@@ -1374,66 +1368,41 @@ function addCrosshairListeners() {
 
 function drawCrosshair() {
     if (!crosshairEnabled || !crosshairVisible || !currentChart) return;
-
     const ctx = currentChart.ctx;
     const chartArea = currentChart.chartArea;
-    
-    // Keep crosshair within chart bounds
+   
     const boundedX = Math.max(chartArea.left, Math.min(chartArea.right, crosshairX));
     const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, crosshairY));
-    
+   
     if (boundedX < chartArea.left || boundedX > chartArea.right || boundedY < chartArea.top || boundedY > chartArea.bottom) return;
-
+   
     ctx.save();
     ctx.strokeStyle = '#E2E8F0';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
-    
+   
     ctx.beginPath();
     ctx.moveTo(boundedX, chartArea.top);
     ctx.lineTo(boundedX, chartArea.bottom);
     ctx.stroke();
-    
+   
     ctx.beginPath();
     ctx.moveTo(chartArea.left, boundedY);
     ctx.lineTo(chartArea.right, boundedY);
     ctx.stroke();
-    
+   
     ctx.restore();
-}
-
-// Tooltip positioning (manual only - no hover)
-function triggerTooltipAtTime(timestamp) {
-    if (!currentChart) return;
-    
-    const xScale = currentChart.scales.x;
-    if (!xScale) return;
-    
-    const pixel = xScale.getPixelForValue(new Date(timestamp));
-    const chartArea = currentChart.chartArea;
-    if (!chartArea) return;
-    
-    if (pixel < chartArea.left || pixel > chartArea.right) return;
-    
-    const canvas = document.getElementById('mainChart');
-    const mockEvent = new MouseEvent('mousemove', {
-        clientX: canvas.getBoundingClientRect().left + pixel,
-        clientY: canvas.getBoundingClientRect().top + chartArea.top + (chartArea.bottom - chartArea.top) / 2
-    });
-    
-    canvas.dispatchEvent(mockEvent);
-    console.log(`🎯 Triggered tooltip at timestamp: ${new Date(timestamp).toLocaleString()}`);
 }
 
 // Chart controls and utilities
 function setChartType(type) {
     currentChartType = type;
-    
+   
     const chartTypeSelect = document.getElementById('chartTypeSelect');
     if (chartTypeSelect) {
         chartTypeSelect.value = type;
     }
-    
+   
     if (currentTimeframe) {
         loadChart(currentTimeframe);
     }
@@ -1447,23 +1416,21 @@ function updateChartTimeframe() {
 function toggleCrosshair() {
     crosshairEnabled = !crosshairEnabled;
     const crosshairBtn = document.querySelector('.control-btn');
-    
+   
     if (crosshairBtn && crosshairBtn.textContent.includes('Cross')) {
-        if (crosshairEnabled) {
-            crosshairBtn.innerHTML = '⊕ Cross ON';
-            crosshairBtn.classList.add('active');
-        } else {
-            crosshairBtn.innerHTML = '⊕ Cross OFF';
-            crosshairBtn.classList.remove('active');
-        }
+        crosshairBtn.classList.toggle('active', crosshairEnabled);
     }
-    
+   
+    if (!crosshairEnabled) {
+        hideCrosshairDisplay();
+    }
+   
     if (currentChart) currentChart.draw();
 }
 
 function downloadChart() {
     if (!currentChart) return;
-    
+   
     const canvas = document.getElementById('mainChart');
     const link = document.createElement('a');
     link.download = `chart-${currentPair}-${currentTimeframe}-${new Date().toISOString().split('T')[0]}.png`;
@@ -1488,21 +1455,31 @@ function getProfessionalTimeFormats(timeframe) {
     };
 }
 
-// Current price display
+// Current price display - FIXED
 function updateCurrentPrice(price) {
     const currentPriceElement = document.getElementById('currentPrice');
     if (currentPriceElement && price) {
-        currentPriceElement.textContent = typeof price === 'number' ? price.toFixed(5) : price;
-        
+        const currentPriceValue = typeof price === 'number' ? price.toFixed(5) : price;
+        currentPriceElement.textContent = currentPriceValue;
+       
         const lastPrice = parseFloat(currentPriceElement.dataset.lastPrice) || price;
+        let direction = 'neutral';
+       
         if (price > lastPrice) {
             currentPriceElement.style.color = 'var(--green)';
             currentPriceElement.style.borderColor = 'var(--green-border)';
+            direction = 'up';
         } else if (price < lastPrice) {
             currentPriceElement.style.color = 'var(--red)';
             currentPriceElement.style.borderColor = 'var(--red-border)';
+            direction = 'down';
+        } else {
+            currentPriceElement.style.color = 'var(--gray)';
+            currentPriceElement.style.borderColor = 'var(--gray-border)';
         }
+       
         currentPriceElement.dataset.lastPrice = price;
+        updateCurrentPriceLevel(price, direction);
     }
 }
 // ==================== INDICATORS MANAGEMENT ====================
