@@ -42,6 +42,7 @@ function renderProfessionalChart(chartData, timeframe, symbol, indicators, indic
     initializeAxisIndicators();
     initializeCurrentPriceLine();
     initializeChartShiftHandle();
+    initializeYAxisFrame();
     addCrosshairListeners();
     setupFixedZoom();
     renderIndicatorsList();
@@ -211,11 +212,10 @@ function createIndicatorDatasets(indicators_data, theme) {
                 break;
         }
     });
-
     return datasets;
 }
 
-// Chart options and configuration
+// Chart options and configuration with enhanced grid
 function getEnhancedChartOptions(timeframe, theme) {
     return {
         responsive: true, 
@@ -275,7 +275,13 @@ function getEnhancedChartOptions(timeframe, theme) {
                 },
                 grid: { 
                     color: theme.grid,
-                    drawBorder: false
+                    drawBorder: true,
+                    border: {
+                        color: theme.grid,
+                        width: 1
+                    },
+                    lineWidth: 1,
+                    drawTicks: true
                 },
                 ticks: { 
                     color: theme.textSecondary,
@@ -283,36 +289,94 @@ function getEnhancedChartOptions(timeframe, theme) {
                     autoSkip: true,
                     maxTicksLimit: 8
                 },
-                border: { display: false }
+                border: { 
+                    display: true,
+                    color: theme.grid,
+                    width: 1
+                }
             },
             y: {
                 position: 'right',
                 grid: { 
                     color: theme.grid,
-                    drawBorder: false
+                    drawBorder: true,
+                    border: {
+                        color: theme.grid,
+                        width: 1
+                    },
+                    lineWidth: 1,
+                    drawTicks: true
                 },
                 ticks: { 
                     color: theme.textSecondary,
                     callback: (value) => value.toFixed(5),
-                    maxTicksLimit: 10
+                    maxTicksLimit: 12, // More ticks = more horizontal grid lines
+                    autoSkip: true
                 },
-                border: { display: false }
+                border: { 
+                    display: true,
+                    color: theme.grid,
+                    width: 1
+                }
             },
             y2: {
                 type: 'linear',
                 position: 'left',
-                grid: { drawOnChartArea: false },
+                grid: { 
+                    drawOnChartArea: false,
+                    drawBorder: true,
+                    border: {
+                        color: theme.grid,
+                        width: 1
+                    }
+                },
                 ticks: { 
                     color: '#E2E8F0',
                     callback: (value) => value.toFixed(2),
                     maxTicksLimit: 5
                 },
-                border: { display: false },
+                border: { 
+                    display: true,
+                    color: theme.grid,
+                    width: 1
+                },
                 min: 0,
                 max: 100
             }
         }
     };
+}
+
+// Y-Axis Frame System
+function initializeYAxisFrame() {
+    const chartWrapper = document.querySelector('.chart-wrapper');
+    if (!chartWrapper) return;
+    
+    // Remove existing frame if any
+    const existingFrame = document.getElementById('yAxisFrame');
+    if (existingFrame) existingFrame.remove();
+    
+    // Create Y-axis frame line
+    const yAxisFrame = document.createElement('div');
+    yAxisFrame.id = 'yAxisFrame';
+    yAxisFrame.className = 'y-axis-frame';
+    
+    chartWrapper.appendChild(yAxisFrame);
+    updateYAxisFrame();
+}
+
+function updateYAxisFrame() {
+    const yAxisFrame = document.getElementById('yAxisFrame');
+    if (!yAxisFrame || !currentChart) return;
+    
+    const chartArea = currentChart.chartArea;
+    if (!chartArea) return;
+    
+    // Position frame line on right edge of Y-axis
+    yAxisFrame.style.left = `${chartArea.right}px`;
+    yAxisFrame.style.top = `${chartArea.top}px`;
+    yAxisFrame.style.height = `${chartArea.bottom - chartArea.top}px`;
+    yAxisFrame.style.display = 'block';
 }
 
 // Current Price Line System
@@ -352,29 +416,25 @@ function updateCurrentPriceLine(price, direction) {
     }
 }
 
-// Chart Shift Handle System
+// Chart Shift Handle System - UPDATED with downward arrow
 let chartShiftHandle = null;
 let isDraggingShift = false;
 let chartShiftAmount = 0;
-const MAX_SHIFT_SPACE = 0.3; // 30% of chart width
+const MAX_SHIFT_SPACE = 0.3;
 
 function initializeChartShiftHandle() {
     const chartWrapper = document.querySelector('.chart-wrapper');
     if (!chartWrapper) return;
     
-    // Remove existing handle
     const existingHandle = document.getElementById('chartShiftHandle');
     if (existingHandle) existingHandle.remove();
     
-    // Create shift handle
     chartShiftHandle = document.createElement('div');
     chartShiftHandle.id = 'chartShiftHandle';
     chartShiftHandle.className = 'chart-shift-handle';
-    chartShiftHandle.innerHTML = '⫸';
+    chartShiftHandle.innerHTML = '👇'; // UPDATED: Changed to downward-pointing arrow
     
     chartWrapper.appendChild(chartShiftHandle);
-    
-    // Add drag listeners
     setupShiftHandleDrag();
 }
 
@@ -405,7 +465,6 @@ function handleShiftDrag(e) {
     
     if (!clientX) return;
     
-    // Calculate shift amount (0 to MAX_SHIFT_SPACE)
     const relativeX = (clientX - rect.left) / rect.width;
     chartShiftAmount = Math.max(0, Math.min(MAX_SHIFT_SPACE, 1 - relativeX));
     
@@ -422,18 +481,20 @@ function stopShiftDrag() {
 function updateChartShift() {
     if (!currentChart) return;
     
-    // Update chart appearance based on shift amount
     const chartArea = currentChart.chartArea;
     if (chartArea && chartShiftHandle) {
         const handleX = chartArea.right - (chartArea.right - chartArea.left) * chartShiftAmount;
         chartShiftHandle.style.left = `${handleX}px`;
         chartShiftHandle.style.display = 'block';
     }
+    
+    // Update Y-axis frame position when shifting
+    updateYAxisFrame();
 }
 
 // Fixed Zoom System
 let currentZoomLevel = 0;
-const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5]; // Fixed zoom multipliers
+const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
 
 function setupFixedZoom() {
     const canvas = document.getElementById('mainChart');
@@ -448,10 +509,8 @@ function handleFixedZoom(e) {
     e.preventDefault();
     
     if (e.deltaY < 0) {
-        // Zoom in
         currentZoomLevel = Math.min(ZOOM_LEVELS.length - 1, currentZoomLevel + 1);
     } else {
-        // Zoom out
         currentZoomLevel = Math.max(0, currentZoomLevel - 1);
     }
     
@@ -463,6 +522,12 @@ function applyFixedZoom() {
     
     const zoomMultiplier = ZOOM_LEVELS[currentZoomLevel];
     currentChart.zoom(zoomMultiplier);
+    
+    // Update frames and lines after zoom
+    setTimeout(() => {
+        updateYAxisFrame();
+        updateCurrentPriceLine(currentPrice, 'neutral');
+    }, 100);
 }
 
 // Enhanced Crosshair System
@@ -691,4 +756,20 @@ function getProfessionalTimeFormats(timeframe) {
         hour: 'MMM dd HH:mm',
         day: 'MMM dd, yyyy'
     };
+}
+
+// Zoom functions
+function zoomIn() {
+    currentZoomLevel = Math.min(ZOOM_LEVELS.length - 1, currentZoomLevel + 1);
+    applyFixedZoom();
+}
+
+function zoomOut() {
+    currentZoomLevel = Math.max(0, currentZoomLevel - 1);
+    applyFixedZoom();
+}
+
+function resetZoom() {
+    currentZoomLevel = 2; // Reset to level 1 (index 2 in ZOOM_LEVELS)
+    applyFixedZoom();
 }
