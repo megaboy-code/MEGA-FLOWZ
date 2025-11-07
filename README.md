@@ -728,10 +728,8 @@ function renderProfessionalChart(chartData, timeframe, symbol, indicators, indic
 
     initializeAxisIndicators();
     initializeCurrentPriceLine();
-    initializeChartShiftHandle();
-    initializeYAxisFrame();
+    initializeChartShiftTriangle();
     addCrosshairListeners();
-    setupFixedZoom();
     renderIndicatorsList();
     
     const latestPrice = chartData.length > 0 ? chartData[chartData.length - 1].y : 0;
@@ -805,7 +803,6 @@ function buildIndicatorParameters() {
 
 // Chart dataset creators
 function createCandlestickDataset(priceData, symbol, theme) {
-    // EXPECT OHLC data from backend: {x: timestamp, o: open, h: high, l: low, c: close}
     return [{
         label: `${symbol} Price`,
         data: priceData,
@@ -902,21 +899,22 @@ function createIndicatorDatasets(indicators_data, theme) {
     return datasets;
 }
 
-// Chart options and configuration with enhanced grid
+// Chart options and configuration
 function getEnhancedChartOptions(timeframe, theme) {
     return {
-        responsive: true, 
+        responsive: true,
         maintainAspectRatio: false,
-        interaction: { 
-            mode: 'nearest', 
-            intersect: false, 
-            axis: 'xy' 
+        interaction: {
+            mode: 'nearest',
+            intersect: false,
+            axis: 'xy'
         },
         plugins: {
             legend: {
                 display: false
             },
             tooltip: {
+                enabled: false, // Disable hover tooltips
                 mode: 'nearest',
                 intersect: false,
                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -943,13 +941,37 @@ function getEnhancedChartOptions(timeframe, theme) {
                         let label = context.dataset.label || '';
                         if (label) label += ': ';
                         if (context.parsed.y !== null) {
-                            label += new Intl.NumberFormat('en-US', { 
+                            label += new Intl.NumberFormat('en-US', {
                                 minimumFractionDigits: 2,
-                                maximumFractionDigits: 5 
+                                maximumFractionDigits: 5
                             }).format(context.parsed.y);
                         }
                         return label;
                     }
+                }
+            },
+            zoom: {
+                zoom: {
+                    drag: {
+                        enabled: false, // Disabled by default, enabled when + button clicked
+                        modifierKey: null
+                    },
+                    wheel: {
+                        enabled: false
+                    },
+                    pinch: {
+                        enabled: false
+                    },
+                    mode: 'xy'
+                },
+                pan: {
+                    enabled: true,
+                    mode: 'xy',
+                    modifierKey: 'shift'
+                },
+                limits: {
+                    x: { min: 'original', max: 'original' },
+                    y: { min: 'original', max: 'original' }
                 }
             }
         },
@@ -957,20 +979,17 @@ function getEnhancedChartOptions(timeframe, theme) {
             x: {
                 type: 'time',
                 time: {
-                    unit: getProfessionalTimeUnit(timeframe),
                     displayFormats: getProfessionalTimeFormats(timeframe)
                 },
-                grid: { 
+                grid: {
                     color: theme.grid,
                     drawBorder: true,
                     border: {
                         color: theme.grid,
                         width: 1
-                    },
-                    lineWidth: 1,
-                    drawTicks: true
+                    }
                 },
-                ticks: { 
+                ticks: {
                     color: theme.textSecondary,
                     maxRotation: 0,
                     autoSkip: true,
@@ -984,21 +1003,18 @@ function getEnhancedChartOptions(timeframe, theme) {
             },
             y: {
                 position: 'right',
-                grid: { 
+                grid: {
                     color: theme.grid,
                     drawBorder: true,
                     border: {
                         color: theme.grid,
                         width: 1
-                    },
-                    lineWidth: 1,
-                    drawTicks: true
+                    }
                 },
-                ticks: { 
+                ticks: {
                     color: theme.textSecondary,
                     callback: (value) => value.toFixed(5),
-                    maxTicksLimit: 12, // More ticks = more horizontal grid lines
-                    autoSkip: true
+                    maxTicksLimit: 10
                 },
                 border: { 
                     display: true,
@@ -1009,61 +1025,18 @@ function getEnhancedChartOptions(timeframe, theme) {
             y2: {
                 type: 'linear',
                 position: 'left',
-                grid: { 
-                    drawOnChartArea: false,
-                    drawBorder: true,
-                    border: {
-                        color: theme.grid,
-                        width: 1
-                    }
-                },
-                ticks: { 
+                grid: { drawOnChartArea: false },
+                ticks: {
                     color: '#E2E8F0',
                     callback: (value) => value.toFixed(2),
                     maxTicksLimit: 5
                 },
-                border: { 
-                    display: true,
-                    color: theme.grid,
-                    width: 1
-                },
+                border: { display: false },
                 min: 0,
                 max: 100
             }
         }
     };
-}
-
-// Y-Axis Frame System
-function initializeYAxisFrame() {
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    if (!chartWrapper) return;
-    
-    // Remove existing frame if any
-    const existingFrame = document.getElementById('yAxisFrame');
-    if (existingFrame) existingFrame.remove();
-    
-    // Create Y-axis frame line
-    const yAxisFrame = document.createElement('div');
-    yAxisFrame.id = 'yAxisFrame';
-    yAxisFrame.className = 'y-axis-frame';
-    
-    chartWrapper.appendChild(yAxisFrame);
-    updateYAxisFrame();
-}
-
-function updateYAxisFrame() {
-    const yAxisFrame = document.getElementById('yAxisFrame');
-    if (!yAxisFrame || !currentChart) return;
-    
-    const chartArea = currentChart.chartArea;
-    if (!chartArea) return;
-    
-    // Position frame line on right edge of Y-axis
-    yAxisFrame.style.left = `${chartArea.right}px`;
-    yAxisFrame.style.top = `${chartArea.top}px`;
-    yAxisFrame.style.height = `${chartArea.bottom - chartArea.top}px`;
-    yAxisFrame.style.display = 'block';
 }
 
 // Current Price Line System
@@ -1103,44 +1076,43 @@ function updateCurrentPriceLine(price, direction) {
     }
 }
 
-// Chart Shift Handle System - UPDATED with downward arrow
-let chartShiftHandle = null;
+// MT5 Style Chart Shift Triangle System
+let chartShiftTriangle = null;
 let isDraggingShift = false;
 let chartShiftAmount = 0;
 const MAX_SHIFT_SPACE = 0.3;
 
-function initializeChartShiftHandle() {
+function initializeChartShiftTriangle() {
     const chartWrapper = document.querySelector('.chart-wrapper');
     if (!chartWrapper) return;
     
-    const existingHandle = document.getElementById('chartShiftHandle');
-    if (existingHandle) existingHandle.remove();
+    const existingTriangle = document.getElementById('chartShiftTriangle');
+    if (existingTriangle) existingTriangle.remove();
     
-    chartShiftHandle = document.createElement('div');
-    chartShiftHandle.id = 'chartShiftHandle';
-    chartShiftHandle.className = 'chart-shift-handle';
-    chartShiftHandle.innerHTML = '▼'; // UPDATED: Changed to downward-pointing arrow
+    chartShiftTriangle = document.createElement('div');
+    chartShiftTriangle.id = 'chartShiftTriangle';
+    chartShiftTriangle.className = 'chart-shift-triangle';
+    chartShiftTriangle.innerHTML = '▼';
     
-    chartWrapper.appendChild(chartShiftHandle);
-    setupShiftHandleDrag();
+    chartWrapper.appendChild(chartShiftTriangle);
+    setupShiftTriangleDrag();
+    
+    updateChartShift();
 }
 
-function setupShiftHandleDrag() {
-    if (!chartShiftHandle) return;
+function setupShiftTriangleDrag() {
+    if (!chartShiftTriangle) return;
     
-    chartShiftHandle.addEventListener('mousedown', startShiftDrag);
+    chartShiftTriangle.addEventListener('mousedown', startShiftDrag);
     document.addEventListener('mousemove', handleShiftDrag);
     document.addEventListener('mouseup', stopShiftDrag);
-    
-    chartShiftHandle.addEventListener('touchstart', startShiftDrag);
-    document.addEventListener('touchmove', handleShiftDrag);
-    document.addEventListener('touchend', stopShiftDrag);
 }
 
 function startShiftDrag(e) {
     e.preventDefault();
     isDraggingShift = true;
-    chartShiftHandle.classList.add('dragging');
+    chartShiftTriangle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
 }
 
 function handleShiftDrag(e) {
@@ -1148,7 +1120,7 @@ function handleShiftDrag(e) {
     
     const chartWrapper = document.querySelector('.chart-wrapper');
     const rect = chartWrapper.getBoundingClientRect();
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientX = e.clientX;
     
     if (!clientX) return;
     
@@ -1156,12 +1128,20 @@ function handleShiftDrag(e) {
     chartShiftAmount = Math.max(0, Math.min(MAX_SHIFT_SPACE, 1 - relativeX));
     
     updateChartShift();
+    updateShiftPriceTimeDisplay(e);
 }
 
 function stopShiftDrag() {
     isDraggingShift = false;
-    if (chartShiftHandle) {
-        chartShiftHandle.classList.remove('dragging');
+    if (chartShiftTriangle) {
+        chartShiftTriangle.classList.remove('dragging');
+    }
+    document.body.style.cursor = '';
+    
+    // Hide shift display when done dragging
+    const shiftDisplay = document.getElementById('chartShiftDisplay');
+    if (shiftDisplay) {
+        shiftDisplay.style.display = 'none';
     }
 }
 
@@ -1169,52 +1149,107 @@ function updateChartShift() {
     if (!currentChart) return;
     
     const chartArea = currentChart.chartArea;
-    if (chartArea && chartShiftHandle) {
+    if (chartArea && chartShiftTriangle) {
         const handleX = chartArea.right - (chartArea.right - chartArea.left) * chartShiftAmount;
-        chartShiftHandle.style.left = `${handleX}px`;
-        chartShiftHandle.style.display = 'block';
+        chartShiftTriangle.style.left = `${handleX}px`;
+        chartShiftTriangle.style.top = `${chartArea.top}px`;
+        chartShiftTriangle.style.display = 'block';
+    }
+}
+
+function updateShiftPriceTimeDisplay(e) {
+    if (!currentChart || !isDraggingShift) return;
+    
+    const chartArea = currentChart.chartArea;
+    const yScale = currentChart.scales.y;
+    const xScale = currentChart.scales.x;
+    
+    if (!chartArea || !yScale || !xScale) return;
+    
+    // Get price and time at current drag position
+    const rect = document.querySelector('.chart-wrapper').getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
+    const price = yScale.max - ((boundedY - chartArea.top) / (chartArea.bottom - chartArea.top)) * (yScale.max - yScale.min);
+    
+    const x = e.clientX - rect.left;
+    const timeValue = xScale.getValueForPixel(x);
+    const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }) : '';
+    
+    // Create or update shift display
+    let shiftDisplay = document.getElementById('chartShiftDisplay');
+    if (!shiftDisplay) {
+        shiftDisplay = document.createElement('div');
+        shiftDisplay.id = 'chartShiftDisplay';
+        shiftDisplay.className = 'chart-shift-display';
+        document.querySelector('.chart-wrapper').appendChild(shiftDisplay);
     }
     
-    // Update Y-axis frame position when shifting
-    updateYAxisFrame();
+    shiftDisplay.innerHTML = `${price.toFixed(5)}<br>${timeText}`;
+    shiftDisplay.style.left = `${e.clientX + 10}px`;
+    shiftDisplay.style.top = `${e.clientY - 30}px`;
+    shiftDisplay.style.display = 'block';
 }
 
-// Fixed Zoom System
-let currentZoomLevel = 0;
-const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
+// Zoom System with Mode Activation
+let isZoomModeActive = false;
 
-function setupFixedZoom() {
-    const canvas = document.getElementById('mainChart');
-    if (!canvas) return;
-    
-    canvas.addEventListener('wheel', handleFixedZoom, { passive: false });
-}
-
-function handleFixedZoom(e) {
+function zoomIn() {
     if (!currentChart) return;
     
-    e.preventDefault();
+    // Activate zoom mode
+    isZoomModeActive = true;
+    currentChart.options.plugins.zoom.zoom.drag.enabled = true;
+    currentChart.update('none');
     
-    if (e.deltaY < 0) {
-        currentZoomLevel = Math.min(ZOOM_LEVELS.length - 1, currentZoomLevel + 1);
-    } else {
-        currentZoomLevel = Math.max(0, currentZoomLevel - 1);
+    // Update button state
+    const zoomBtn = document.querySelector('.control-btn');
+    if (zoomBtn && zoomBtn.textContent.includes('🔍+')) {
+        zoomBtn.innerHTML = '🔍+ ACTIVE';
+        zoomBtn.classList.add('active');
     }
+}
+
+function zoomOut() {
+    if (!currentChart) return;
     
+    // Just zoom out, don't change mode
+    currentZoomLevel = Math.max(0, currentZoomLevel - 1);
     applyFixedZoom();
 }
+
+function resetZoom() {
+    if (!currentChart) return;
+    
+    // Reset zoom and deactivate mode
+    isZoomModeActive = false;
+    currentZoomLevel = 2;
+    currentChart.resetZoom();
+    currentChart.options.plugins.zoom.zoom.drag.enabled = false;
+    currentChart.update('none');
+    
+    // Update button state
+    const zoomBtn = document.querySelector('.control-btn');
+    if (zoomBtn && zoomBtn.textContent.includes('ACTIVE')) {
+        zoomBtn.innerHTML = '🔍+';
+        zoomBtn.classList.remove('active');
+    }
+}
+
+let currentZoomLevel = 2;
+const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
 
 function applyFixedZoom() {
     if (!currentChart) return;
     
     const zoomMultiplier = ZOOM_LEVELS[currentZoomLevel];
     currentChart.zoom(zoomMultiplier);
-    
-    // Update frames and lines after zoom
-    setTimeout(() => {
-        updateYAxisFrame();
-        updateCurrentPriceLine(currentPrice, 'neutral');
-    }, 100);
 }
 
 // Enhanced Crosshair System
@@ -1248,18 +1283,22 @@ function updateAxisIndicators(x, y, price, time) {
     const chartArea = currentChart?.chartArea;
     if (!chartArea) return;
     
-    if (price !== null && y >= chartArea.top && y <= chartArea.bottom) {
+    // Keep indicators within chart bounds
+    const boundedX = Math.max(chartArea.left, Math.min(chartArea.right, x));
+    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
+    
+    if (price !== null && boundedY >= chartArea.top && boundedY <= chartArea.bottom) {
         axisIndicators.yIndicator.textContent = price.toFixed(5);
-        axisIndicators.yIndicator.style.top = `${y}px`;
+        axisIndicators.yIndicator.style.top = `${boundedY}px`;
         axisIndicators.yIndicator.style.right = '0px';
         axisIndicators.yIndicator.style.display = 'block';
     } else {
         axisIndicators.yIndicator.style.display = 'none';
     }
     
-    if (time && x >= chartArea.left && x <= chartArea.right) {
+    if (time && boundedX >= chartArea.left && boundedX <= chartArea.right) {
         axisIndicators.xIndicator.textContent = time;
-        axisIndicators.xIndicator.style.left = `${x}px`;
+        axisIndicators.xIndicator.style.left = `${boundedX}px`;
         axisIndicators.xIndicator.style.bottom = '0px';
         axisIndicators.xIndicator.style.display = 'block';
     } else {
@@ -1339,7 +1378,11 @@ function drawCrosshair() {
     const ctx = currentChart.ctx;
     const chartArea = currentChart.chartArea;
     
-    if (crosshairX < chartArea.left || crosshairX > chartArea.right || crosshairY < chartArea.top || crosshairY > chartArea.bottom) return;
+    // Keep crosshair within chart bounds
+    const boundedX = Math.max(chartArea.left, Math.min(chartArea.right, crosshairX));
+    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, crosshairY));
+    
+    if (boundedX < chartArea.left || boundedX > chartArea.right || boundedY < chartArea.top || boundedY > chartArea.bottom) return;
 
     ctx.save();
     ctx.strokeStyle = '#E2E8F0';
@@ -1347,19 +1390,19 @@ function drawCrosshair() {
     ctx.setLineDash([5, 5]);
     
     ctx.beginPath();
-    ctx.moveTo(crosshairX, chartArea.top);
-    ctx.lineTo(crosshairX, chartArea.bottom);
+    ctx.moveTo(boundedX, chartArea.top);
+    ctx.lineTo(boundedX, chartArea.bottom);
     ctx.stroke();
     
     ctx.beginPath();
-    ctx.moveTo(chartArea.left, crosshairY);
-    ctx.lineTo(chartArea.right, crosshairY);
+    ctx.moveTo(chartArea.left, boundedY);
+    ctx.lineTo(chartArea.right, boundedY);
     ctx.stroke();
     
     ctx.restore();
 }
 
-// Tooltip positioning
+// Tooltip positioning (manual only - no hover)
 function triggerTooltipAtTime(timestamp) {
     if (!currentChart) return;
     
@@ -1445,22 +1488,23 @@ function getProfessionalTimeFormats(timeframe) {
     };
 }
 
-// Zoom functions
-function zoomIn() {
-    currentZoomLevel = Math.min(ZOOM_LEVELS.length - 1, currentZoomLevel + 1);
-    applyFixedZoom();
+// Current price display
+function updateCurrentPrice(price) {
+    const currentPriceElement = document.getElementById('currentPrice');
+    if (currentPriceElement && price) {
+        currentPriceElement.textContent = typeof price === 'number' ? price.toFixed(5) : price;
+        
+        const lastPrice = parseFloat(currentPriceElement.dataset.lastPrice) || price;
+        if (price > lastPrice) {
+            currentPriceElement.style.color = 'var(--green)';
+            currentPriceElement.style.borderColor = 'var(--green-border)';
+        } else if (price < lastPrice) {
+            currentPriceElement.style.color = 'var(--red)';
+            currentPriceElement.style.borderColor = 'var(--red-border)';
+        }
+        currentPriceElement.dataset.lastPrice = price;
+    }
 }
-
-function zoomOut() {
-    currentZoomLevel = Math.max(0, currentZoomLevel - 1);
-    applyFixedZoom();
-}
-
-function resetZoom() {
-    currentZoomLevel = 2; // Reset to level 1 (index 2 in ZOOM_LEVELS)
-    applyFixedZoom();
-}
-
 // ==================== INDICATORS MANAGEMENT ====================
 
 function initializeIndicatorsPanel() {
