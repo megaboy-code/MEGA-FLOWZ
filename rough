@@ -1,6 +1,3 @@
-rough 
-
-
 // ==================== CHART SYSTEM ====================
 
 // Chart rendering and datasets
@@ -49,6 +46,7 @@ function renderProfessionalChart(chartData, timeframe, symbol, indicators, indic
     
     const latestPrice = chartData.length > 0 ? chartData[chartData.length - 1].y : 0;
     updateCurrentPrice(latestPrice);
+    updateCurrentPriceLine(latestPrice, 'neutral');
     
     console.log(`✅ Chart rendered: ${symbol} ${timeframe} (${currentChartType})`);
 }
@@ -306,7 +304,7 @@ function getEnhancedChartOptions(timeframe, theme) {
                 ticks: { 
                     color: theme.textSecondary,
                     callback: (value) => value.toFixed(5),
-                    maxTicksLimit: 6
+                    maxTicksLimit: 10  // More ticks for better grid
                 },
                 border: { display: false }
             },
@@ -315,7 +313,7 @@ function getEnhancedChartOptions(timeframe, theme) {
                 position: 'left',
                 grid: { drawOnChartArea: false },
                 ticks: { 
-                    color: '#F59E0B',
+                    color: '#E2E8F0', // Changed from orange to match crosshair
                     callback: (value) => value.toFixed(2),
                     maxTicksLimit: 5
                 },
@@ -456,7 +454,14 @@ function addCrosshairListeners() {
             
             const xScale = currentChart.scales.x;
             const timeValue = xScale.getValueForPixel(crosshairX);
-            const timeText = timeValue ? new Date(timeValue).toLocaleTimeString() : '';
+            const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }) : '';
+            
             updateAxisIndicators(crosshairX, crosshairY, value, timeText);
         }
         
@@ -493,24 +498,19 @@ function drawCrosshair() {
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
     
-    // Vertical line
+    // Vertical line only
     ctx.beginPath();
     ctx.moveTo(crosshairX, chartArea.top);
     ctx.lineTo(crosshairX, chartArea.bottom);
     ctx.stroke();
     
-    // Horizontal line
+    // Horizontal line only  
     ctx.beginPath();
     ctx.moveTo(chartArea.left, crosshairY);
     ctx.lineTo(chartArea.right, crosshairY);
     ctx.stroke();
     
-    // Center dot
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#E2E8F0';
-    ctx.beginPath();
-    ctx.arc(crosshairX, crosshairY, 4, 0, 2 * Math.PI);
-    ctx.fill();
+    // REMOVED THE DOT COMPLETELY - clean professional look
     ctx.restore();
 }
 
