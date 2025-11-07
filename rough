@@ -1,820 +1,1085 @@
-// ==================== CHART SYSTEM ====================
-
-// Chart rendering and datasets
-function renderProfessionalChart(chartData, timeframe, symbol, indicators, indicators_data) {
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    
-    if (currentChart) currentChart.destroy();
-
-    currentIndicatorValues = indicators || {};
-    
-    const professionalTheme = {
-        primary: chartColors.line,
-        background: chartColors.areaFill,
-        grid: '#1E293B',
-        text: '#F1F5F9',
-        textSecondary: '#94A3B8',
-        accent: '#8B5CF6'
-    };
-
-    let datasets = [];
-
-    if (currentChartType === 'line') {
-        datasets = createLineDataset(chartData, symbol, professionalTheme);
-    } else if (currentChartType === 'area') {
-        datasets = createAreaDataset(chartData, symbol, professionalTheme);
-    } else if (currentChartType === 'candlestick') {
-        datasets = createCandlestickDataset(chartData, symbol, professionalTheme);
-    } else if (currentChartType === 'trend') {
-        datasets = createLineDataset(chartData, symbol, professionalTheme);
-    }
-
-    datasets = datasets.concat(createIndicatorDatasets(indicators_data, professionalTheme));
-
-    const chartType = currentChartType === 'candlestick' ? 'candlestick' : 'line';
-    
-    currentChart = new Chart(ctx, {
-        type: chartType,
-        data: { datasets: datasets },
-        options: getEnhancedChartOptions(timeframe, professionalTheme)
-    });
-
-    initializeAxisIndicators();
-    initializeCurrentPriceLine();
-    initializeChartShiftTriangle();
-    addCrosshairListeners();
-    renderIndicatorsList();
-    
-    const latestPrice = chartData.length > 0 ? chartData[chartData.length - 1].y : 0;
-    updateCurrentPrice(latestPrice);
-    updateCurrentPriceLine(latestPrice, 'neutral');
-    
-    console.log(`✅ Chart rendered: ${symbol} ${timeframe} (${currentChartType})`);
+/* ===============================================================
+   🏔️📈 PYRAMID & CHART STYLES
+   =============================================================== */
+:root {
+  --bg: #0a0e14;
+  --card: #151a21;
+  --text: #e6e6e6;
+  --green: #00d394;
+  --red: #ff4d4d;
+  --gray: #8a8f98;
+  --accent: #3a86ff;
+  --tab-bg: #11161d;
+  --tab-active: #3a86ff;
+  --green-border: #00d394;
+  --red-border: #ff4d4d;
+  --gray-border: #8a8f98;
+  --grid: #1e232a;
+  --border: #2a2f36;
+  --success-bg: rgba(0, 211, 148, 0.1);
+  --danger-bg: rgba(255, 77, 77, 0.1);
+  --accent-bg: rgba(58, 134, 255, 0.1);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+.tabs-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.tabs-header {
+  display: flex;
+  background: var(--tab-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--gray);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 3px solid transparent;
+  position: relative;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+.tab.active {
+  color: var(--text);
+  border-bottom-color: var(--tab-active);
+  background: linear-gradient(135deg, rgba(58, 134, 255, 0.15), rgba(58, 134, 255, 0.05));
+}
+.tab-content {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--card) 0%, #1a1f26 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.header h1 {
+  margin: 0 0 12px 0;
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, #3a86ff, #00d394);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.025em;
+}
+.info {
+  font-size: 0.85rem;
+  color: var(--gray);
+  margin-top: 6px;
+}
+.pyramid-style-selector {
+  margin: 12px 0 6px 0;
+}
+.style-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.control-label {
+  font-size: 0.85rem;
+  color: var(--gray);
+  font-weight: 500;
+}
+.style-dropdown {
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 180px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 8L9 5' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+.style-dropdown:hover {
+  border-color: var(--accent);
+  background-color: rgba(58, 134, 255, 0.05);
+}
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px;
+  flex-wrap: wrap;
+}
+.size-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.size-btn:hover {
+  background: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.3);
+}
+.size-btn.active {
+  background: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(58, 134, 255, 0.3);
+}
+.pyramid {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+  transition: all 0.3s ease;
+}
+.pyramid.small .block { padding: 8px; margin: 4px 0; border-left-width: 3px; }
+.pyramid.small .header-line { font-size: 0.8rem; margin-bottom: 4px; }
+.pyramid.small .ohlc { font-size: 0.7rem; padding: 3px 6px; }
+.pyramid.small .momentum-summary { font-size: 0.65rem; margin-top: 4px; padding: 4px; }
+.pyramid.small .children { margin-left: 16px; padding-left: 12px; margin-top: 6px; }
+.pyramid.small .toggle { padding: 2px 4px; font-size: 0.7rem; }
+.pyramid.medium .block { padding: 14px; margin: 6px 0; border-left-width: 4px; }
+.pyramid.medium .header-line { font-size: 0.85rem; margin-bottom: 6px; }
+.pyramid.medium .ohlc { font-size: 0.75rem; padding: 4px 8px; }
+.pyramid.medium .momentum-summary { font-size: 0.7rem; margin-top: 6px; padding: 6px; }
+.pyramid.medium .children { margin-left: 20px; padding-left: 14px; margin-top: 8px; }
+.pyramid.large .block { padding: 18px; margin: 8px 0; border-left-width: 5px; }
+.pyramid.large .header-line { font-size: 0.9rem; margin-bottom: 8px; }
+.pyramid.large .ohlc { font-size: 0.8rem; padding: 6px 10px; }
+.pyramid.large .momentum-summary { font-size: 0.75rem; margin-top: 8px; padding: 8px; }
+.pyramid.large .children { margin-left: 24px; padding-left: 16px; margin-top: 10px; }
+.block {
+  background: linear-gradient(135deg, var(--card) 0%, #1a2436 100%);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 6px 0;
+  border-left: 4px solid #334155;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.block.green {
+  border-left-color: var(--green-border);
+  background: linear-gradient(135deg, var(--card) 0%, #15201a 100%);
+}
+.block.red {
+  border-left-color: var(--red-border);
+  background: linear-gradient(135deg, var(--card) 0%, #201515 100%);
+}
+.block.green:hover {
+  box-shadow: 0 6px 20px rgba(0, 211, 148, 0.2);
+  border-color: var(--green-border);
+  transform: translateY(-2px);
+}
+.block.red:hover {
+  box-shadow: 0 6px 20px rgba(255, 77, 107, 0.2);
+  border-color: var(--red-border);
+  transform: translateY(-2px);
+}
+.header-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.ohlc {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-weight: 400;
+}
+.momentum-summary {
+  font-size: 0.7rem;
+  color: var(--gray);
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-weight: 400;
+}
+.children {
+  margin-left: 20px;
+  border-left: 2px dashed var(--border);
+  padding-left: 14px;
+  margin-top: 8px;
+}
+.toggle {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 8px;
+  background: rgba(58, 134, 255, 0.1);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+  font-size: 0.75rem;
+  border: 1px solid rgba(58, 134, 255, 0.3);
+  font-weight: 500;
+}
+.toggle:hover { background: rgba(58, 134, 255, 0.2); }
+.hidden { display: none; }
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--gray);
+  font-size: 1rem;
+  background: var(--card);
+  border-radius: 12px;
+  margin: 16px;
+  border: 1px solid var(--border);
+}
+.update-info {
+  text-align: center;
+  margin: 16px;
+  padding: 12px;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 500;
+}
+/* ==================== CHART STYLES ==================== */
+.chart-container {
+  height: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  gap: 16px;
+}
+.chart-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 16px;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.timeframe-select, .chart-type-select {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  font-weight: 500;
+  min-width: 80px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 8L9 5' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+}
+.timeframe-select:hover, .chart-type-select:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.chart-type-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.color-pickers {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.color-picker label {
+  font-size: 0.75rem;
+  color: var(--gray);
+  white-space: nowrap;
+}
+.color-picker input[type="color"] {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--bg);
+  padding: 0;
+}
+.control-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.control-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  transform: translateY(-1px);
+}
+.control-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.current-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--green);
+  background: var(--success-bg);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--green-border);
+  white-space: nowrap;
+}
+.chart-status {
+  margin-left: auto;
+  color: var(--gray);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chart-area {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-height: 500px;
+}
+.indicators-panel {
+  width: 260px;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  gap: 14px;
+}
+.indicators-panel.collapsed {
+  width: 50px;
+  padding: 10px;
+  align-items: center;
+}
+.indicators-panel.collapsed > *:not(.panel-header) {
+  display: none;
+}
+.indicators-panel.collapsed .panel-header {
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.indicators-panel.collapsed .panel-header h3,
+.indicators-panel.collapsed .panel-toggle {
+  display: none;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.indicators-panel.collapsed .panel-header {
+  justify-content: center;
+}
+.panel-emoji {
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: none;
+}
+.indicators-panel.collapsed .panel-emoji {
+  display: block;
+}
+.panel-emoji:hover {
+  background: var(--accent-bg);
+}
+.panel-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex: 1;
+  text-align: center;
+}
+.indicators-panel.collapsed .panel-header h3 {
+  display: none;
+}
+.panel-toggle {
+  background: none;
+  border: none;
+  color: var(--gray);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel-toggle:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.indicators-panel.collapsed .panel-toggle {
+  display: none;
+}
+.indicators-dropdown-section {
+  margin-bottom: 6px;
+}
+.indicators-dropdown {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 8L9 5' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+}
+.indicators-dropdown:hover {
+  border-color: var(--accent);
+  background-color: rgba(58, 134, 255, 0.05);
+}
+.indicators-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 400px;
+}
+.no-indicators {
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.8rem;
+  padding: 20px;
+  font-style: italic;
+}
+.indicator-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+.indicator-item.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+.indicator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.indicator-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.indicator-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--gray);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.indicator-settings {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setting-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.setting-group label {
+  font-size: 0.7rem;
+  color: var(--gray);
+}
+.setting-group input {
+  width: 50px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-align: center;
+}
+.setting-group input[type="color"] {
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  border-radius: 3px;
+}
+.indicator-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.indicator-btn {
+  flex: 1;
+  padding: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.65rem;
+  transition: all 0.2s ease;
+}
+.indicator-btn:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+.indicator-btn.remove {
+  background: rgba(255, 77, 77, 0.1);
+  border-color: rgba(255, 77, 77, 0.3);
+}
+.indicator-btn.remove:hover {
+  background: rgba(255, 77, 77, 0.2);
+}
+.chart-wrapper {
+  flex: 1;
+  position: relative;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+#mainChart {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+.axis-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1002;
+  background: rgba(15, 23, 42, 0.95);
+  color: #E2E8F0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  border: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+.y-axis-indicator {
+  right: 10px;
+  transform: translateY(-50%);
+}
+.x-axis-indicator {
+  bottom: 10px;
+  transform: translateX(-50%);
+}
+/* ==================== NEW CSS FOR JAVASCRIPT FEATURES ==================== */
+/* Live Icon & Reloading States */
+.live-icon {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+.live-icon.pulsing {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.reloading-sign {
+  position: absolute;
+  top: 20px;
+  right: 60px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid var(--accent);
+  z-index: 100;
+}
+/* Pyramid Block Metrics & Progress Indicators */
+.block-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+.pips-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--gray);
+  font-weight: 500;
+}
+.progress-indicator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.progress-indicator.complete {
+  background: var(--success-bg);
+  color: var(--green);
+  border-color: var(--green-border);
+}
+.progress-indicator.partial {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.progress-indicator:not(.complete):not(.partial) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gray);
+}
+/* Crosshair Visual Styles */
+.crosshair-line {
+  position: absolute;
+  background: #F59E0B;
+  pointer-events: none;
+  z-index: 100;
+}
+.crosshair-vertical {
+  width: 1px;
+  height: 100%;
+  top: 0;
+}
+.crosshair-horizontal {
+  height: 1px;
+  width: 100%;
+  left: 0;
+}
+.crosshair-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #F59E0B;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 101;
+}
+/* Tooltip Locking Interface */
+.tooltip-locked {
+  border: 2px solid #F59E0B !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
+}
+.lock-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: #F59E0B;
+  color: #000;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  font-weight: bold;
+}
+/* Enhanced Chart Type Visuals */
+.candlestick-up {
+  background: var(--success-bg);
+  border-color: var(--green-border);
+}
+.candlestick-down {
+  background: var(--danger-bg);
+  border-color: var(--red-border);
+}
+/* Trend Line Colors */
+.trend-bull {
+  border-color: var(--green-border) !important;
+}
+.trend-bear {
+  border-color: var(--red-border) !important;
+}
+/* Keyboard Shortcuts Indicator */
+.shortcuts-help {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.75rem;
+  color: var(--gray);
+  z-index: 1000;
+  display: none;
+  max-width: 300px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.shortcuts-help.visible {
+  display: block;
+}
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  align-items: center;
+}
+.shortcut-key {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: 8px;
+  font-size: 0.7rem;
+  min-width: 60px;
+  text-align: center;
+}
+/* Enhanced Loading States */
+.polling-status {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  color: var(--gray);
+  z-index: 1000;
+  font-family: 'JetBrains Mono', monospace;
+}
+.polling-status.active {
+  border-color: var(--green-border);
+  color: var(--green);
+  background: var(--success-bg);
+}
+.polling-status.normal {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+/* Status Indicator */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-indicator.active {
+  background: var(--green);
+  animation: blink 2s infinite;
+}
+.status-indicator.normal {
+  background: var(--accent);
+}
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
 }
 
-function loadChart(timeframe = 'H1') {
-    const chartStatus = document.getElementById('chartStatus');
-    if (!chartStatus) return;
-    
-    chartStatus.textContent = '🔄 Loading...';
-    
-    const indicatorParams = buildIndicatorParameters();
-    
-    fetch(`/api/chart-data/${timeframe}?pair=${currentPair}&pyramid_style=${currentPyramidStyle}${indicatorParams}`)
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) {
-                chartStatus.textContent = `❌ ${data.error}`;
-                return;
-            }
-            
-            renderProfessionalChart(data.data, timeframe, currentPair, data.indicators, data.indicators_data);
-            chartStatus.textContent = `✅ ${currentPair} ${timeframe}`;
-            currentTimeframe = timeframe;
-            
-            if (lastClickedPyramidBlock) {
-                setTimeout(() => {
-                    triggerTooltipAtTime(lastClickedPyramidBlock.time);
-                    lastClickedPyramidBlock = null;
-                }, 500);
-            }
-        })
-        .catch(error => {
-            console.error('Chart loading error:', error);
-            chartStatus.textContent = '❌ Failed to load chart data';
-        });
+/* ==================== CHART SYSTEM ENHANCEMENTS ==================== */
+/* Current Price Line */
+.current-price-line {
+    position: absolute;
+    height: 1px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.7;
+    transition: top 0.1s ease;
 }
 
-function buildIndicatorParameters() {
-    let params = '';
-    activeIndicators.forEach((config, indicatorId) => {
-        const baseType = indicatorId.split('_')[0];
-        
-        switch(baseType) {
-            case 'sma': case 'ema': case 'rsi':
-                params += `&${baseType}_period=${config.period}`;
-                break;
-            case 'macd':
-                params += `&${baseType}_fast=${config.fastPeriod}&${baseType}_slow=${config.slowPeriod}&${baseType}_signal=${config.signalPeriod}`;
-                break;
-            case 'bollinger':
-                params += `&${baseType}_period=${config.period}&${baseType}_std=${config.stdDev}`;
-                break;
-            case 'stochastic':
-                params += `&${baseType}_k=${config.kPeriod}&${baseType}_k_smooth=${config.kSmooth}&${baseType}_d_smooth=${config.dSmooth}`;
-                break;
-        }
-        
-        params += `&${baseType}_instance=${config.instanceNumber}`;
-    });
-    
-    return params;
+/* MT5 Style Chart Shift Triangle */
+.chart-shift-triangle {
+    position: absolute;
+    top: 0;
+    width: 12px;
+    height: 12px;
+    background: #8a8f98;
+    color: white;
+    border-radius: 2px;
+    cursor: col-resize;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: bold;
+    user-select: none;
+    transition: all 0.2s ease;
 }
 
-// Chart dataset creators
-function createCandlestickDataset(priceData, symbol, theme) {
-    return [{
-        label: `${symbol} Price`,
-        data: priceData,
-        borderColor: theme.primary,
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 3,
-        tension: 0.1,
-        yAxisID: 'y',
-        fill: false
-    }];
+.chart-shift-triangle.dragging {
+    background: #3a86ff;
+    box-shadow: 0 0 0 2px rgba(58, 134, 255, 0.3);
 }
 
-function createLineDataset(priceData, symbol, theme) {
-    if (currentChartType === 'trend') {
-        return [{
-            label: `${symbol} Price`, data: priceData,
-            segment: { borderColor: (ctx) => {
-                if (ctx.p0.parsed.y === ctx.p1.parsed.y) return theme.primary;
-                return ctx.p1.parsed.y > ctx.p0.parsed.y ? chartColors.bull : chartColors.bear;
-            }},
-            borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.1, yAxisID: 'y', fill: false
-        }];
-    } else {
-        return [{
-            label: `${symbol} Price`, data: priceData, borderColor: theme.primary, backgroundColor: 'transparent',
-            borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.1, yAxisID: 'y', fill: false
-        }];
-    }
+.chart-shift-triangle:hover {
+    background: #6b7280;
 }
 
-function createAreaDataset(priceData, symbol, theme) {
-    return [{
-        label: `${symbol} Price`, data: priceData, borderColor: theme.primary, backgroundColor: theme.background,
-        borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.1, yAxisID: 'y',
-        fill: { target: 'origin', above: theme.background }
-    }];
+/* Chart Shift Display (Price/Time during drag) */
+.chart-shift-display {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.95);
+    color: #E2E8F0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    border: 1px solid #E2E8F0;
+    z-index: 1003;
+    pointer-events: none;
+    display: none;
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1.3;
 }
 
-function createIndicatorDatasets(indicators_data, theme) {
-    const datasets = [];
-    if (!indicators_data) return datasets;
-    
-    activeIndicators.forEach((config, indicatorId) => {
-        if (!config.visible) return;
-        const baseType = indicatorId.split('_')[0];
-        
-        switch(baseType) {
-            case 'bollinger':
-                if (indicators_data.bollinger) {
-                    const bb = indicators_data.bollinger;
-                    datasets.push(
-                        { label: `${config.name} Upper`, data: bb.upper, borderColor: config.color, borderWidth: 1, pointRadius: 0, yAxisID: 'y', fill: false },
-                        { label: `${config.name} Middle`, data: bb.middle, borderColor: config.color, borderWidth: 1.5, pointRadius: 0, yAxisID: 'y', fill: false },
-                        { label: `${config.name} Lower`, data: bb.lower, borderColor: config.color, borderWidth: 1, pointRadius: 0, yAxisID: 'y', fill: false }
-                    );
-                }
-                break;
-            case 'stochastic':
-                if (indicators_data.stoch_k) {
-                    datasets.push({ label: `${config.name} %K`, data: indicators_data.stoch_k, borderColor: config.color, borderWidth: 1.5, pointRadius: 0, yAxisID: 'y2', fill: false });
-                }
-                if (indicators_data.stoch_d) {
-                    datasets.push({ label: `${config.name} %D`, data: indicators_data.stoch_d, borderColor: config.color, borderWidth: 1.5, borderDash: [5, 5], pointRadius: 0, yAxisID: 'y2', fill: false });
-                }
-                break;
-            case 'supportresistance':
-                if (indicators_data.support_resistance) {
-                    datasets.push({ label: 'Support/Resistance', data: [], srLevels: indicators_data.support_resistance, supportColor: config.supportColor, resistanceColor: config.resistanceColor });
-                }
-                break;
-            default:
-                const instanceNumber = config.instanceNumber;
-                const dataKeys = [`${baseType}_${config.period}`, `${baseType}_${instanceNumber}`, baseType, `${baseType}_20`, `${baseType}_12`];
-                
-                let indicatorData = null;
-                for (const key of dataKeys) {
-                    if (indicators_data[key]) {
-                        indicatorData = indicators_data[key];
-                        break;
-                    }
-                }
-                
-                if (indicatorData) {
-                    datasets.push({
-                        label: `${config.name} #${instanceNumber}`, data: indicatorData, borderColor: config.color, borderWidth: 1.5,
-                        borderDash: baseType === 'ema' ? [2, 2] : [0, 0], pointRadius: 0, tension: 0, yAxisID: config.yAxis || 'y', fill: false
-                    });
-                }
-                break;
-        }
-    });
-    return datasets;
+/* Axis Indicators */
+.axis-indicator {
+    background: rgba(15, 23, 42, 0.95);
+    color: #E2E8F0;
+    border: 1px solid #E2E8F0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 1002;
+    white-space: nowrap;
 }
 
-// Chart options and configuration
-function getEnhancedChartOptions(timeframe, theme) {
-    return {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-            mode: 'nearest',
-            intersect: false,
-            axis: 'xy'
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                enabled: false, // Disable hover tooltips
-                mode: 'nearest',
-                intersect: false,
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                titleColor: theme.text,
-                bodyColor: theme.textSecondary,
-                borderColor: theme.grid,
-                borderWidth: 1,
-                cornerRadius: 6,
-                padding: 12,
-                callbacks: {
-                    title: function(context) {
-                        const date = new Date(context[0].parsed.x);
-                        return date.toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        });
-                    },
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) label += ': ';
-                        if (context.parsed.y !== null) {
-                            label += new Intl.NumberFormat('en-US', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 5
-                            }).format(context.parsed.y);
-                        }
-                        return label;
-                    }
-                }
-            },
-            zoom: {
-                zoom: {
-                    drag: {
-                        enabled: false, // Disabled by default, enabled when + button clicked
-                        modifierKey: null
-                    },
-                    wheel: {
-                        enabled: false
-                    },
-                    pinch: {
-                        enabled: false
-                    },
-                    mode: 'xy'
-                },
-                pan: {
-                    enabled: true,
-                    mode: 'xy',
-                    modifierKey: 'shift'
-                },
-                limits: {
-                    x: { min: 'original', max: 'original' },
-                    y: { min: 'original', max: 'original' }
-                }
-            }
-        },
-        scales: {
-            x: {
-                type: 'time',
-                time: {
-                    displayFormats: getProfessionalTimeFormats(timeframe)
-                },
-                grid: {
-                    color: theme.grid,
-                    drawBorder: true,
-                    border: {
-                        color: theme.grid,
-                        width: 1
-                    }
-                },
-                ticks: {
-                    color: theme.textSecondary,
-                    maxRotation: 0,
-                    autoSkip: true,
-                    maxTicksLimit: 8
-                },
-                border: { 
-                    display: true,
-                    color: theme.grid,
-                    width: 1
-                }
-            },
-            y: {
-                position: 'right',
-                grid: {
-                    color: theme.grid,
-                    drawBorder: true,
-                    border: {
-                        color: theme.grid,
-                        width: 1
-                    }
-                },
-                ticks: {
-                    color: theme.textSecondary,
-                    callback: (value) => value.toFixed(5),
-                    maxTicksLimit: 10
-                },
-                border: { 
-                    display: true,
-                    color: theme.grid,
-                    width: 1
-                }
-            },
-            y2: {
-                type: 'linear',
-                position: 'left',
-                grid: { drawOnChartArea: false },
-                ticks: {
-                    color: '#E2E8F0',
-                    callback: (value) => value.toFixed(2),
-                    maxTicksLimit: 5
-                },
-                border: { display: false },
-                min: 0,
-                max: 100
-            }
-        }
-    };
+/* ==================== RESPONSIVE DESIGN ==================== */
+@media (max-width: 768px) {
+  .header {
+    margin: 10px;
+    padding: 16px;
+  }
+ 
+  .header h1 {
+    font-size: 1.5rem;
+  }
+ 
+  .style-controls {
+    flex-direction: column;
+    gap: 6px;
+  }
+ 
+  .style-dropdown {
+    min-width: 160px;
+  }
+ 
+  .tabs-header {
+    padding: 0 8px;
+  }
+ 
+  .tab {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+  }
+ 
+  .chart-controls {
+    gap: 6px;
+    padding: 12px;
+  }
+ 
+  .timeframe-select, .chart-type-select, .control-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    min-width: auto;
+  }
+ 
+  .chart-type-section {
+    flex-direction: column;
+    gap: 6px;
+  }
+ 
+  .color-pickers {
+    justify-content: center;
+  }
+ 
+  .chart-area {
+    flex-direction: column;
+  }
+ 
+  .indicators-panel {
+    width: 100%;
+    height: 250px;
+  }
+ 
+  .indicators-panel.collapsed {
+    width: 100%;
+    height: 50px;
+  }
+ 
+  .children {
+    margin-left: 12px;
+    padding-left: 10px;
+  }
+  /* Responsive updates for new elements */
+  .block-metrics {
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+ 
+  .live-icon, .reloading-sign {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 4px 0;
+  }
+ 
+  .shortcuts-help {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+ 
+  .polling-status {
+    bottom: 5px;
+    left: 5px;
+    font-size: 0.65rem;
+    padding: 4px 8px;
+  }
+
+  .chart-shift-triangle {
+    width: 10px;
+    height: 10px;
+    font-size: 7px;
+  }
 }
-
-// Current Price Line System
-function initializeCurrentPriceLine() {
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    if (!chartWrapper) return;
-    
-    const existingLine = document.getElementById('currentPriceLine');
-    if (existingLine) existingLine.remove();
-    
-    const currentPriceLine = document.createElement('div');
-    currentPriceLine.id = 'currentPriceLine';
-    currentPriceLine.className = 'current-price-line';
-    currentPriceLine.style.display = 'none';
-    
-    chartWrapper.appendChild(currentPriceLine);
+/* Dropdown Styling */
+select, option {
+  background-color: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
 }
-
-function updateCurrentPriceLine(price, direction) {
-    const currentPriceLine = document.getElementById('currentPriceLine');
-    if (!currentPriceLine || !currentChart) return;
-    
-    const chartArea = currentChart.chartArea;
-    if (!chartArea) return;
-    
-    const yScale = currentChart.scales.y;
-    const pixel = yScale.getPixelForValue(price);
-    
-    if (pixel >= chartArea.top && pixel <= chartArea.bottom) {
-        currentPriceLine.style.display = 'block';
-        currentPriceLine.style.top = `${pixel}px`;
-        currentPriceLine.style.left = `${chartArea.left}px`;
-        currentPriceLine.style.width = `${chartArea.right - chartArea.left}px`;
-        currentPriceLine.style.backgroundColor = direction === 'up' ? 'var(--green)' : 'var(--red)';
-    } else {
-        currentPriceLine.style.display = 'none';
-    }
+select:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(58, 134, 255, 0.1) !important;
 }
-
-// MT5 Style Chart Shift Triangle System
-let chartShiftTriangle = null;
-let isDraggingShift = false;
-let chartShiftAmount = 0;
-const MAX_SHIFT_SPACE = 0.3;
-
-function initializeChartShiftTriangle() {
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    if (!chartWrapper) return;
-    
-    const existingTriangle = document.getElementById('chartShiftTriangle');
-    if (existingTriangle) existingTriangle.remove();
-    
-    chartShiftTriangle = document.createElement('div');
-    chartShiftTriangle.id = 'chartShiftTriangle';
-    chartShiftTriangle.className = 'chart-shift-triangle';
-    chartShiftTriangle.innerHTML = '▼';
-    
-    chartWrapper.appendChild(chartShiftTriangle);
-    setupShiftTriangleDrag();
-    
-    updateChartShift();
+/* Scrollbar Styling */
+.indicators-list::-webkit-scrollbar {
+  width: 4px;
 }
-
-function setupShiftTriangleDrag() {
-    if (!chartShiftTriangle) return;
-    
-    chartShiftTriangle.addEventListener('mousedown', startShiftDrag);
-    document.addEventListener('mousemove', handleShiftDrag);
-    document.addEventListener('mouseup', stopShiftDrag);
+.indicators-list::-webkit-scrollbar-track {
+  background: var(--bg);
+  border-radius: 2px;
 }
-
-function startShiftDrag(e) {
-    e.preventDefault();
-    isDraggingShift = true;
-    chartShiftTriangle.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
+.indicators-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
 }
-
-function handleShiftDrag(e) {
-    if (!isDraggingShift || !currentChart) return;
-    
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    const rect = chartWrapper.getBoundingClientRect();
-    const clientX = e.clientX;
-    
-    if (!clientX) return;
-    
-    const relativeX = (clientX - rect.left) / rect.width;
-    chartShiftAmount = Math.max(0, Math.min(MAX_SHIFT_SPACE, 1 - relativeX));
-    
-    updateChartShift();
-    updateShiftPriceTimeDisplay(e);
+.indicators-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
-
-function stopShiftDrag() {
-    isDraggingShift = false;
-    if (chartShiftTriangle) {
-        chartShiftTriangle.classList.remove('dragging');
-    }
-    document.body.style.cursor = '';
-    
-    // Hide shift display when done dragging
-    const shiftDisplay = document.getElementById('chartShiftDisplay');
-    if (shiftDisplay) {
-        shiftDisplay.style.display = 'none';
-    }
+/* Additional scrollbar styling for other elements */
+.tab-content::-webkit-scrollbar {
+  width: 6px;
 }
-
-function updateChartShift() {
-    if (!currentChart) return;
-    
-    const chartArea = currentChart.chartArea;
-    if (chartArea && chartShiftTriangle) {
-        const handleX = chartArea.right - (chartArea.right - chartArea.left) * chartShiftAmount;
-        chartShiftTriangle.style.left = `${handleX}px`;
-        chartShiftTriangle.style.top = `${chartArea.top}px`;
-        chartShiftTriangle.style.display = 'block';
-    }
+.tab-content::-webkit-scrollbar-track {
+  background: var(--bg);
 }
-
-function updateShiftPriceTimeDisplay(e) {
-    if (!currentChart || !isDraggingShift) return;
-    
-    const chartArea = currentChart.chartArea;
-    const yScale = currentChart.scales.y;
-    const xScale = currentChart.scales.x;
-    
-    if (!chartArea || !yScale || !xScale) return;
-    
-    // Get price and time at current drag position
-    const rect = document.querySelector('.chart-wrapper').getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
-    const price = yScale.max - ((boundedY - chartArea.top) / (chartArea.bottom - chartArea.top)) * (yScale.max - yScale.min);
-    
-    const x = e.clientX - rect.left;
-    const timeValue = xScale.getValueForPixel(x);
-    const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    }) : '';
-    
-    // Create or update shift display
-    let shiftDisplay = document.getElementById('chartShiftDisplay');
-    if (!shiftDisplay) {
-        shiftDisplay = document.createElement('div');
-        shiftDisplay.id = 'chartShiftDisplay';
-        shiftDisplay.className = 'chart-shift-display';
-        document.querySelector('.chart-wrapper').appendChild(shiftDisplay);
-    }
-    
-    shiftDisplay.innerHTML = `${price.toFixed(5)}<br>${timeText}`;
-    shiftDisplay.style.left = `${e.clientX + 10}px`;
-    shiftDisplay.style.top = `${e.clientY - 30}px`;
-    shiftDisplay.style.display = 'block';
+.tab-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
-
-// Zoom System with Mode Activation
-let isZoomModeActive = false;
-
-function zoomIn() {
-    if (!currentChart) return;
-    
-    // Activate zoom mode
-    isZoomModeActive = true;
-    currentChart.options.plugins.zoom.zoom.drag.enabled = true;
-    currentChart.update('none');
-    
-    // Update button state
-    const zoomBtn = document.querySelector('.control-btn');
-    if (zoomBtn && zoomBtn.textContent.includes('🔍+')) {
-        zoomBtn.innerHTML = '🔍+ ACTIVE';
-        zoomBtn.classList.add('active');
-    }
-}
-
-function zoomOut() {
-    if (!currentChart) return;
-    
-    // Just zoom out, don't change mode
-    currentZoomLevel = Math.max(0, currentZoomLevel - 1);
-    applyFixedZoom();
-}
-
-function resetZoom() {
-    if (!currentChart) return;
-    
-    // Reset zoom and deactivate mode
-    isZoomModeActive = false;
-    currentZoomLevel = 2;
-    currentChart.resetZoom();
-    currentChart.options.plugins.zoom.zoom.drag.enabled = false;
-    currentChart.update('none');
-    
-    // Update button state
-    const zoomBtn = document.querySelector('.control-btn');
-    if (zoomBtn && zoomBtn.textContent.includes('ACTIVE')) {
-        zoomBtn.innerHTML = '🔍+';
-        zoomBtn.classList.remove('active');
-    }
-}
-
-let currentZoomLevel = 2;
-const ZOOM_LEVELS = [0.5, 0.7, 1, 1.5, 2, 3, 5];
-
-function applyFixedZoom() {
-    if (!currentChart) return;
-    
-    const zoomMultiplier = ZOOM_LEVELS[currentZoomLevel];
-    currentChart.zoom(zoomMultiplier);
-}
-
-// Enhanced Crosshair System
-function initializeAxisIndicators() {
-    if (axisIndicators.yIndicator) axisIndicators.yIndicator.remove();
-    if (axisIndicators.xIndicator) axisIndicators.xIndicator.remove();
-    
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    if (!chartWrapper) return;
-    
-    const yIndicator = document.createElement('div');
-    yIndicator.className = 'axis-indicator y-axis-indicator';
-    yIndicator.id = 'yAxisIndicator';
-    yIndicator.style.display = 'none';
-    
-    const xIndicator = document.createElement('div');
-    xIndicator.className = 'axis-indicator x-axis-indicator';
-    xIndicator.id = 'xAxisIndicator';
-    xIndicator.style.display = 'none';
-    
-    chartWrapper.appendChild(yIndicator);
-    chartWrapper.appendChild(xIndicator);
-    
-    axisIndicators.yIndicator = yIndicator;
-    axisIndicators.xIndicator = xIndicator;
-}
-
-function updateAxisIndicators(x, y, price, time) {
-    if (!axisIndicators.yIndicator || !axisIndicators.xIndicator) return;
-    
-    const chartArea = currentChart?.chartArea;
-    if (!chartArea) return;
-    
-    // Keep indicators within chart bounds
-    const boundedX = Math.max(chartArea.left, Math.min(chartArea.right, x));
-    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, y));
-    
-    if (price !== null && boundedY >= chartArea.top && boundedY <= chartArea.bottom) {
-        axisIndicators.yIndicator.textContent = price.toFixed(5);
-        axisIndicators.yIndicator.style.top = `${boundedY}px`;
-        axisIndicators.yIndicator.style.right = '0px';
-        axisIndicators.yIndicator.style.display = 'block';
-    } else {
-        axisIndicators.yIndicator.style.display = 'none';
-    }
-    
-    if (time && boundedX >= chartArea.left && boundedX <= chartArea.right) {
-        axisIndicators.xIndicator.textContent = time;
-        axisIndicators.xIndicator.style.left = `${boundedX}px`;
-        axisIndicators.xIndicator.style.bottom = '0px';
-        axisIndicators.xIndicator.style.display = 'block';
-    } else {
-        axisIndicators.xIndicator.style.display = 'none';
-    }
-}
-
-function hideAxisIndicators() {
-    if (axisIndicators.yIndicator) axisIndicators.yIndicator.style.display = 'none';
-    if (axisIndicators.xIndicator) axisIndicators.xIndicator.style.display = 'none';
-}
-
-function addCrosshairListeners() {
-    const canvas = document.getElementById('mainChart');
-    if (!canvas) return;
-
-    crosshairVisible = false;
-    crosshairX = 0;
-    crosshairY = 0;
-    crosshairPrice = null;
-
-    canvas.addEventListener('mousemove', function(event) {
-        if (tooltipLocked) return;
-        if (!crosshairEnabled || !currentChart) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        crosshairX = event.clientX - rect.left;
-        crosshairY = event.clientY - rect.top;
-        crosshairVisible = true;
-        
-        const chartArea = currentChart.chartArea;
-        const yScale = currentChart.scales.y;
-        
-        if (yScale && chartArea) {
-            const pixelRange = chartArea.bottom - chartArea.top;
-            const valueRange = yScale.max - yScale.min;
-            const value = yScale.max - ((crosshairY - chartArea.top) / pixelRange) * valueRange;
-            crosshairPrice = value;
-            
-            updateCurrentPrice(value);
-            
-            const xScale = currentChart.scales.x;
-            const timeValue = xScale.getValueForPixel(crosshairX);
-            const timeText = timeValue ? new Date(timeValue).toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            }) : '';
-            
-            updateAxisIndicators(crosshairX, crosshairY, value, timeText);
-        }
-        
-        if (currentChart) currentChart.draw();
-    });
-
-    canvas.addEventListener('mouseleave', function() {
-        crosshairVisible = false;
-        crosshairPrice = null;
-        hideAxisIndicators();
-        if (currentChart) currentChart.draw();
-    });
-
-    if (currentChart) {
-        const originalDraw = currentChart.draw;
-        currentChart.draw = function() {
-            originalDraw.call(this);
-            if (crosshairEnabled) drawCrosshair();
-        };
-    }
-}
-
-function drawCrosshair() {
-    if (!crosshairEnabled || !crosshairVisible || !currentChart) return;
-
-    const ctx = currentChart.ctx;
-    const chartArea = currentChart.chartArea;
-    
-    // Keep crosshair within chart bounds
-    const boundedX = Math.max(chartArea.left, Math.min(chartArea.right, crosshairX));
-    const boundedY = Math.max(chartArea.top, Math.min(chartArea.bottom, crosshairY));
-    
-    if (boundedX < chartArea.left || boundedX > chartArea.right || boundedY < chartArea.top || boundedY > chartArea.bottom) return;
-
-    ctx.save();
-    ctx.strokeStyle = '#E2E8F0';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
-    
-    ctx.beginPath();
-    ctx.moveTo(boundedX, chartArea.top);
-    ctx.lineTo(boundedX, chartArea.bottom);
-    ctx.stroke();
-    
-    ctx.beginPath();
-    ctx.moveTo(chartArea.left, boundedY);
-    ctx.lineTo(chartArea.right, boundedY);
-    ctx.stroke();
-    
-    ctx.restore();
-}
-
-// Tooltip positioning (manual only - no hover)
-function triggerTooltipAtTime(timestamp) {
-    if (!currentChart) return;
-    
-    const xScale = currentChart.scales.x;
-    if (!xScale) return;
-    
-    const pixel = xScale.getPixelForValue(new Date(timestamp));
-    const chartArea = currentChart.chartArea;
-    if (!chartArea) return;
-    
-    if (pixel < chartArea.left || pixel > chartArea.right) return;
-    
-    const canvas = document.getElementById('mainChart');
-    const mockEvent = new MouseEvent('mousemove', {
-        clientX: canvas.getBoundingClientRect().left + pixel,
-        clientY: canvas.getBoundingClientRect().top + chartArea.top + (chartArea.bottom - chartArea.top) / 2
-    });
-    
-    canvas.dispatchEvent(mockEvent);
-    console.log(`🎯 Triggered tooltip at timestamp: ${new Date(timestamp).toLocaleString()}`);
-}
-
-// Chart controls and utilities
-function setChartType(type) {
-    currentChartType = type;
-    
-    const chartTypeSelect = document.getElementById('chartTypeSelect');
-    if (chartTypeSelect) {
-        chartTypeSelect.value = type;
-    }
-    
-    if (currentTimeframe) {
-        loadChart(currentTimeframe);
-    }
-}
-
-function updateChartTimeframe() {
-    const timeframe = document.getElementById('timeframeSelect').value;
-    loadChart(timeframe);
-}
-
-function toggleCrosshair() {
-    crosshairEnabled = !crosshairEnabled;
-    const crosshairBtn = document.querySelector('.control-btn');
-    
-    if (crosshairBtn && crosshairBtn.textContent.includes('Cross')) {
-        if (crosshairEnabled) {
-            crosshairBtn.innerHTML = '⊕ Cross ON';
-            crosshairBtn.classList.add('active');
-        } else {
-            crosshairBtn.innerHTML = '⊕ Cross OFF';
-            crosshairBtn.classList.remove('active');
-        }
-    }
-    
-    if (currentChart) currentChart.draw();
-}
-
-function downloadChart() {
-    if (!currentChart) return;
-    
-    const canvas = document.getElementById('mainChart');
-    const link = document.createElement('a');
-    link.download = `chart-${currentPair}-${currentTimeframe}-${new Date().toISOString().split('T')[0]}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-}
-
-// Chart time utilities
-function getProfessionalTimeUnit(timeframe) {
-    const units = {
-        'M1': 'minute', 'M5': 'minute', 'M15': 'minute',
-        'H1': 'hour', 'H4': 'hour', 'D1': 'day'
-    };
-    return units[timeframe] || 'hour';
-}
-
-function getProfessionalTimeFormats(timeframe) {
-    return {
-        minute: 'HH:mm',
-        hour: 'MMM dd HH:mm',
-        day: 'MMM dd, yyyy'
-    };
-}
-
-// Current price display
-function updateCurrentPrice(price) {
-    const currentPriceElement = document.getElementById('currentPrice');
-    if (currentPriceElement && price) {
-        currentPriceElement.textContent = typeof price === 'number' ? price.toFixed(5) : price;
-        
-        const lastPrice = parseFloat(currentPriceElement.dataset.lastPrice) || price;
-        if (price > lastPrice) {
-            currentPriceElement.style.color = 'var(--green)';
-            currentPriceElement.style.borderColor = 'var(--green-border)';
-        } else if (price < lastPrice) {
-            currentPriceElement.style.color = 'var(--red)';
-            currentPriceElement.style.borderColor = 'var(--red-border)';
-        }
-        currentPriceElement.dataset.lastPrice = price;
-    }
+.tab-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
