@@ -630,16 +630,15 @@ body {
 .chart-wrapper {
   flex: 1;
   position: relative;
-  background: var(--card) !important;
+  background: var(--card);
   border-radius: 10px;
   border: 1px solid var(--border);
-  overflow: hidden !important;
+  overflow: hidden;
 }
 #mainChart {
   width: 100%;
   height: 100%;
   z-index: 1;
-  background: transparent !important;
 }
 .axis-indicator {
   position: absolute;
@@ -733,10 +732,10 @@ body {
   background: rgba(255, 255, 255, 0.05);
   color: var(--gray);
 }
-/* Crosshair Visual Styles - WHITE */
+/* Crosshair Visual Styles */
 .crosshair-line {
   position: absolute;
-  background: #FFFFFF; /* WHITE */
+  background: #F59E0B;
   pointer-events: none;
   z-index: 100;
 }
@@ -754,21 +753,21 @@ body {
   position: absolute;
   width: 8px;
   height: 8px;
-  background: #FFFFFF; /* WHITE */
+  background: #F59E0B;
   border-radius: 50%;
   pointer-events: none;
   z-index: 101;
 }
 /* Tooltip Locking Interface */
 .tooltip-locked {
-  border: 2px solid #FFFFFF !important; /* WHITE */
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
+  border: 2px solid #F59E0B !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
 }
 .lock-indicator {
   position: absolute;
   top: 5px;
   right: 5px;
-  background: #FFFFFF; /* WHITE */
+  background: #F59E0B;
   color: #000;
   padding: 2px 4px;
   border-radius: 3px;
@@ -880,27 +879,22 @@ body {
     z-index: 1000;
     opacity: 0.7;
     transition: top 0.1s ease;
-    left: 0;
-    right: 0;
 }
 
 /* Y-Axis Price Box */
 .y-axis-price-box {
     position: absolute;
     right: 0;
-    padding: 2px 4px;
-    border-radius: 3px 0 0 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     z-index: 1000;
     pointer-events: none;
     border: 1px solid;
     text-align: center;
-    min-width: 50px;
-    max-width: 60px;
-    overflow: hidden;
-    white-space: nowrap;
+    min-width: 70px;
 }
 
 /* Crosshair Display Box */
