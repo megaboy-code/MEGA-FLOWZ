@@ -1,1796 +1,1259 @@
-// ===============================================================
-// ⚡ MEGA FLOWZ DASHBOARD - REORGANIZED SCRIPT
-// ===============================================================
+# ===============================================================
+# 📊🔔 ANALYSIS_ALERTS.JS - PROFESSIONAL ENHANCED VERSION
+# ===============================================================
 
-// ==================== GLOBAL STATE & CONFIG ====================
-
-// Global state
-let currentChart = null;
-let currentChartType = 'line';
-let currentTimeframe = 'H1';
-let currentPyramidStyle = 'daily';
-let currentPair = 'EUR/USD';
-let activeIndicators = new Map();
-let crosshairEnabled = true;
-
-// Zoom and Scroll State
-let isZoomModeActive = false;
-let currentZoomMode = null;
-const SCROLL_SENSITIVITY = 0.025; // Set to 0.025 for better scrolling
-
-// Smart Polling System State
-let isActivePollingMode = false;
-let activePollingTimer = null;
-let pollingInterval = null;
-const ACTIVE_POLL_INTERVAL = 2000;    // 2 seconds during active mode
-const NORMAL_POLL_INTERVAL = 30000;   // 30 seconds during normal mode
-const ACTIVE_POLL_DURATION = 10000;   // 10 seconds active window
-let activePollCount = 0;
-const MAX_ACTIVE_POLLS = 5;           // Maximum 5 polls during active mode
-
-// Loading states
-let isLoadingNewPair = false;
-let currentLiveIcon = null;
-let lastDataUpdateTime = null;
-let isBackendOnline = true;
-
-// Chart colors
-let chartColors = {
-    line: '#3A86FF',
-    areaFill: 'rgba(58, 134, 255, 0.15)',
-    bull: '#00D394',
-    bear: '#EF4444'
+// Analysis state
+let currentAnalysis = {};
+let activeAlerts = [];
+let alertSettings = {
+    rsiAlerts: true,
+    priceAlerts: false,
+    volumeAlerts: true,
+    momentumAlerts: true
 };
 
-// Real-time axis indicators
-let axisIndicators = {
-    yIndicator: null,
-    xIndicator: null
+// Gauge state
+let gaugeValues = {
+    momentum: 50,
+    volatility: 50,
+    strength: 50,
+    risk: 50
 };
 
-// Crosshair state
-let crosshairVisible = false;
-let crosshairX = 0;
-let crosshairY = 0;
-let crosshairPrice = null;
-
-// Tooltip locking variables
-let tooltipLocked = false;
-let lockedTooltipPosition = null;
-
-// Track pyramid block for tooltip positioning
-let lastClickedPyramidBlock = null;
-
-// Pyramid style configurations
-const pyramidStructures = {
-    'scalper': ['M15', 'M5', 'M1'],
-    'intraday': ['H1', 'M15', 'M5', 'M1'],
-    'swing': ['H4', 'H1', 'M15', 'M5', 'M1'],
-    'daily': ['D1', 'H4', 'H1', 'M15', 'M5', 'M1']
-};
-
-const pyramidStyleNames = {
-    'scalper': '⚡ Scalper',
-    'intraday': '📈 Intraday', 
-    'swing': '🔄 Swing',
-    'daily': '📅 Daily'
-};
-
-let timeframeVisibility = {
-    'D1': true, 'H4': true, 'H1': true, 
-    'M15': true, 'M5': true, 'M1': true
-};
-
-// Expected child counts for progress calculation
-const expectedChildCounts = {
-    'D1': 6,   // 6 H4 blocks in a day
-    'H4': 4,   // 4 H1 blocks in 4 hours
-    'H1': 4,   // 4 M15 blocks in 1 hour
-    'M15': 3,  // 3 M5 blocks in 15 minutes
-    'M5': 5    // 5 M1 blocks in 5 minutes
-};
-
-// Indicator management
-let indicatorInstances = {
-    sma: [], ema: [], rsi: [], macd: [], bollinger: [], stochastic: [], supportresistance: []
-};
-
-// Track real indicator values from backend
-let currentIndicatorValues = {};
-
-// DOM elements
-const status = document.getElementById('status');
-const updateInfo = document.getElementById('updateInfo');
-const pyramidDiv = document.getElementById('pyramid');
-const expandedBlocks = new Set();
-
-// ==================== INITIALIZATION ====================
-
-function initializeDashboard() {
-    console.log("🧠 Initializing MEGA FLOWZ Professional Dashboard...");
-    
-    // Set defaults
-    const pairsSelect = document.getElementById('pairsSelect');
-    if (pairsSelect) pairsSelect.value = 'EUR/USD';
-    
-    // UPDATE: Add candlestick option to dropdown
-    const chartTypeSelect = document.getElementById('chartTypeSelect');
-    if (chartTypeSelect) {
-        chartTypeSelect.innerHTML = `
-            <option value="line">📈 Line</option>
-            <option value="area">🟦 Area</option>
-            <option value="candlestick">🕯️ Candlestick</option>
-            <option value="trend">🎯 Bull/Bear Trend</option>
-        `;
-        chartTypeSelect.value = 'line';
-    }
-    
-    // Initialize smart polling system
-    initializeSmartPolling();
-    
-    // Initialize components
-    initializeIndicatorsPanel();
-    initializeColorPickers();
-    
-    // Initialize chart scroll with proper sensitivity
-    initializeChartScroll();
-    
-    // Start backend status monitoring
-    setInterval(checkBackendStatus, 5000);
-    
-    // Load initial data
-    changePyramidStyle('daily');
-    updateDashboard();
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', handleKeyboardShortcuts);
-
-    console.log("✅ Dashboard initialized successfully");
+// Initialize analysis & alerts module
+function initializeAnalysisAlerts() {
+    console.log("📊🔔 Enhanced Analysis & Alerts module initialized");
+    loadAlertSettings();
+    createGaugeComponents();
+    initializeEnhancedAnalysis();
+    renderAnalysisSections();
+    renderAlertsSections();
 }
 
-function checkBackendStatus() {
-    if (!lastDataUpdateTime) return;
-    
-    const timeSinceLastUpdate = Date.now() - lastDataUpdateTime;
-    const isOffline = timeSinceLastUpdate > 35000; // 35 seconds without data
-    
-    if (isOffline && isBackendOnline && currentLiveIcon) {
-        console.log("🔴 Backend appears offline");
-        isBackendOnline = false;
-        currentLiveIcon.style.color = '#EF4444'; // Red for offline
-        currentLiveIcon.classList.remove('pulsing');
-        currentLiveIcon.classList.add('offline');
-    }
-}
+// ==================== CONFLUENCE CALCULATION ENGINE ====================
 
-// Start the dashboard when DOM is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeDashboard);
-} else {
-    initializeDashboard();
-}
-
-console.log("🚀 MEGA FLOWZ Dashboard Script Loaded Successfully!");
-
-// ==================== SMART POLLING SYSTEM ====================
-
-function initializeSmartPolling() {
-    console.log("🔄 Initializing Smart Polling System...");
-    startPolling();
-    setupUserActivityListeners();
-}
-
-function onUserAction(actionType = 'unknown') {
-    console.log(`🎯 User action detected: ${actionType}`);
-    
-    // Only trigger active polling for pair and style changes
-    if (actionType !== 'pair_change' && actionType !== 'pyramid_style_change') {
-        console.log(`🔕 Skipping active polling for: ${actionType}`);
-        return;
+// Calculate confluence from pyramid data
+function calculateConfluence(pyramidData) {
+    if (!pyramidData || !pyramidData.blocks) {
+        return gaugeValues;
     }
     
-    // Set active polling state
-    isActivePollingMode = true;
-    activePollCount = 0;
-    
-    // Clear existing timers
-    if (activePollingTimer) {
-        clearTimeout(activePollingTimer);
-    }
-    
-    // Set timer to return to normal mode
-    activePollingTimer = setTimeout(() => {
-        console.log("🔄 Returning to normal polling mode (30s)");
-        isActivePollingMode = false;
-        activePollCount = 0;
-        restartPolling();
-    }, ACTIVE_POLL_DURATION);
-    
-    // Immediate data refresh
-    updateDashboard();
-    
-    // Restart polling with active interval
-    restartPolling();
-}
-
-function startPolling() {
-    // Clear existing interval
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-    }
-    
-    // Start new interval based on current mode
-    const interval = isActivePollingMode ? ACTIVE_POLL_INTERVAL : NORMAL_POLL_INTERVAL;
-    console.log(`📡 Starting ${isActivePollingMode ? 'ACTIVE' : 'NORMAL'} mode polling: ${interval/1000}s interval`);
-    
-    pollingInterval = setInterval(() => {
-        if (isActivePollingMode) {
-            activePollCount++;
-            console.log(`🔍 Active poll #${activePollCount}`);
-            
-            // Stop active polling after max polls reached
-            if (activePollCount >= MAX_ACTIVE_POLLS) {
-                console.log("🔄 Max active polls reached, returning to normal mode");
-                isActivePollingMode = false;
-                activePollCount = 0;
-                restartPolling();
-                return;
-            }
-        }
-        updateDashboard();
-    }, interval);
-}
-
-function restartPolling() {
-    console.log(`🔄 Restarting polling in ${isActivePollingMode ? 'ACTIVE' : 'NORMAL'} mode`);
-    startPolling();
-}
-
-function setupUserActivityListeners() {
-    // Pair dropdown change - KEEP THIS
-    const pairsSelect = document.getElementById('pairsSelect');
-    if (pairsSelect) {
-        pairsSelect.addEventListener('change', (e) => {
-            showReloadingSign();
-            onUserAction('pair_change');
-            changePair(e.target.value);
-        });
-    }
-    
-    // Pyramid style dropdown change - KEEP THIS
-    const pyramidStyleSelect = document.getElementById('pyramidStyleSelect');
-    if (pyramidStyleSelect) {
-        pyramidStyleSelect.addEventListener('change', (e) => {
-            showReloadingSign();
-            onUserAction('pyramid_style_change');
-            changePyramidStyle(e.target.value);
-        });
-    }
-    
-    // REMOVED: Chart interactions - no longer trigger active polling
-    const chartCanvas = document.getElementById('mainChart');
-    if (chartCanvas) {
-        // Keep functionality but don't trigger active polling
-        chartCanvas.addEventListener('click', () => {
-            // Chart click functionality without active polling
-        });
-        chartCanvas.addEventListener('mousemove', () => {
-            // Chart hover functionality without active polling
-        });
-    }
-    
-    // REMOVED: Indicator interactions - no longer trigger active polling
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('indicator-btn') || 
-            e.target.classList.contains('setting-group') ||
-            e.target.closest('.indicator-settings')) {
-            // Indicator adjustments without active polling
-        }
-    });
-    
-    // REMOVED: Pyramid size buttons - no longer trigger active polling
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('size-btn')) {
-            // Pyramid size changes without active polling
-        }
-    });
-    
-    // REMOVED: Timeframe changes - no longer trigger active polling
-    const timeframeSelect = document.getElementById('timeframeSelect');
-    if (timeframeSelect) {
-        timeframeSelect.addEventListener('change', () => {
-            // Timeframe changes without active polling
-            loadChart(timeframeSelect.value);
-        });
-    }
-    
-    // REMOVED: Chart type changes - no longer trigger active polling
-    const chartTypeSelect = document.getElementById('chartTypeSelect');
-    if (chartTypeSelect) {
-        chartTypeSelect.addEventListener('change', () => {
-            // Chart type changes without active polling
-            setChartType(chartTypeSelect.value);
-        });
-    }
-    
-    console.log("✅ User activity listeners setup complete");
-}
-
-function getPollingStatus() {
-    return {
-        isActivePollingMode: isActivePollingMode,
-        currentInterval: isActivePollingMode ? ACTIVE_POLL_INTERVAL : NORMAL_POLL_INTERVAL,
-        mode: isActivePollingMode ? 'ACTIVE' : 'NORMAL',
-        activePollCount: activePollCount,
-        maxActivePolls: MAX_ACTIVE_POLLS,
-        timeUntilNormal: activePollingTimer ? 'active' : 'normal'
-    };
-}
-
-// ==================== LOADING STATES MANAGEMENT ====================
-
-function showReloadingSign() {
-    // Remove existing live icon
-    if (currentLiveIcon) {
-        currentLiveIcon.remove();
-        currentLiveIcon = null;
-    }
-    
-    // Create or update reloading sign
-    let reloadingSign = document.getElementById('reloadingSign');
-    if (!reloadingSign) {
-        reloadingSign = document.createElement('div');
-        reloadingSign.id = 'reloadingSign';
-        reloadingSign.className = 'reloading-sign';
-        reloadingSign.innerHTML = '🔄 Loading...';
-        
-        const header = document.querySelector('.header');
-        if (header) {
-            header.appendChild(reloadingSign);
-        }
-    }
-    
-    reloadingSign.style.display = 'block';
-    isLoadingNewPair = true;
-}
-
-function hideReloadingSign() {
-    const reloadingSign = document.getElementById('reloadingSign');
-    if (reloadingSign) {
-        reloadingSign.style.display = 'none';
-    }
-    isLoadingNewPair = false;
-}
-
-function showLiveIcon() {
-    // Hide reloading sign first
-    hideReloadingSign();
-    
-    // Update last data update time
-    lastDataUpdateTime = Date.now();
-    isBackendOnline = true;
-    
-    // Create small live pulsing icon
-    if (!currentLiveIcon) {
-        currentLiveIcon = document.createElement('div');
-        currentLiveIcon.className = 'live-icon';
-        currentLiveIcon.innerHTML = '●';
-        currentLiveIcon.style.fontSize = '12px';
-        currentLiveIcon.style.width = '16px';
-        currentLiveIcon.style.height = '16px';
-        currentLiveIcon.style.display = 'flex';
-        currentLiveIcon.style.alignItems = 'center';
-        currentLiveIcon.style.justifyContent = 'center';
-        
-        const header = document.querySelector('.header');
-        if (header) {
-            header.appendChild(currentLiveIcon);
-        }
-        
-        // Add pulsing animation
-        setTimeout(() => {
-            if (currentLiveIcon) {
-                currentLiveIcon.classList.add('pulsing');
-                currentLiveIcon.style.color = '#00D394'; // Green for online
-            }
-        }, 100);
-    } else {
-        // Update existing icon to online state
-        currentLiveIcon.style.color = '#00D394';
-        currentLiveIcon.classList.add('pulsing');
-        currentLiveIcon.classList.remove('offline');
-    }
-}
-
-// ==================== PYRAMID FUNCTIONS ====================
-
-function setPyramidSize(size) {
-    document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    pyramidDiv.className = 'pyramid ' + size;
-}
-
-function getBlockId(block) { return `${block.tf}_${block.time}`; }
-
-function shouldDisplayBlock(block) {
-    if (!timeframeVisibility[block.tf]) return false;
-    if (block.children && block.children.length > 0) {
-        return block.children.some(child => shouldDisplayBlock(child));
-    }
-    return true;
-}
-
-// UPDATED: Calculate pips with crypto detection
-function calculatePips(block) {
-    if (!block.H || !block.L) return 0;
-    
-    const high = parseFloat(block.H);
-    const low = parseFloat(block.L);
-    const range = high - low;
-    
-    // Detect pair type and apply correct pip calculation
-    if (currentPair.includes('JPY')) {
-        // JPY pairs: 2-3 decimal places, pip = 0.01
-        return Math.round(range * 100) + "pips";
-    } else if (currentPair.includes('BTC') || currentPair.includes('ETH') || currentPair.includes('XRP') || 
-               currentPair.includes('ADA') || currentPair.includes('DOT') || currentPair.includes('LTC')) {
-        // Crypto pairs: use points (raw price difference)
-        return Math.round(range) + "points";
-    } else {
-        // Most forex pairs: 4-5 decimal places, pip = 0.0001
-        return Math.round(range * 10000) + "pips";
-    }
-}
-
-// UPDATED: Calculate completion progress with fixed expected totals and color coding
-function calculateProgress(block) {
-    if (!block.children || block.children.length === 0) {
-        return { hasProgress: false };
-    }
-    
-    // Get expected total for this timeframe
-    const expectedTotal = expectedChildCounts[block.tf] || block.children.length;
-    
-    // FIXED: Count completed children (ALL blocks with momentum, including neutral)
-    const completed = block.children.filter(child => 
-        child.momentum_summary  // ← Only check for momentum data, include neutral blocks
-    ).length;
-    
-    // Determine status for color coding
-    let status = '';
-    if (completed === expectedTotal) {
-        status = 'complete'; // Green - fully complete
-    } else if (completed > 0) {
-        status = 'partial';  // Blue - partially complete
-    }
-    // No status if completed === 0
-    
-    return {
-        hasProgress: expectedTotal > 0,
-        completed: completed,
-        total: expectedTotal, // Use fixed expected total, not visible count
-        status: status
-    };
-}
-
-// UPDATED: Create block with corrected pips, progress, and color coding
-function createBlock(block, level = 0) {
-    if (!shouldDisplayBlock(block)) return null;
-
-    const blockId = getBlockId(block);
-    const div = document.createElement('div');
-    div.className = `block ${block.dir === '🟢' ? 'green' : block.dir === '🔴' ? 'red' : 'gray'}`;
-    div.dataset.id = blockId;
-
-    const isExpanded = expandedBlocks.has(blockId);
-    const hasChildren = block.children && block.children.some(child => shouldDisplayBlock(child));
-    
-    // UPDATED: Calculate pips and progress with corrected logic
-    const pips = calculatePips(block);
-    const progressInfo = calculateProgress(block);
-
-    // UPDATED: Include corrected pips and progress with color coding
-    div.innerHTML = `
-        <div class="header-line">
-            <span class="toggle" onclick="toggleBlock('${blockId}', this)">
-                ${hasChildren ? (isExpanded ? '📂' : '📁') : '📄'} 
-                ${block.tf} ${block.range} ${block.dir}
-            </span>
-            <span class="block-metrics">
-                <span class="pips-value">${pips}</span>
-                ${progressInfo.hasProgress ? `
-                    <span class="progress-indicator ${progressInfo.status}">
-                        ${progressInfo.completed}/${progressInfo.total}
-                    </span>
-                ` : ''}
-            </span>
-            <span class="ohlc">O:${block.O} H:${block.H} L:${block.L} C:${block.C} V:${formatVolume(block.volume)}</span>
-        </div>
-        <div class="momentum-summary">${block.momentum_summary}</div>
-    `;
-
-    if (hasChildren) {
-        const children = document.createElement('div');
-        children.className = `children ${isExpanded ? '' : 'hidden'}`;
-        children.id = `children-${blockId}`;
-        
-        block.children.forEach(child => {
-            const childElement = createBlock(child, level + 1);
-            if (childElement) children.appendChild(childElement);
-        });
-        
-        if (children.children.length > 0) div.appendChild(children);
-    }
-    
-    div.addEventListener('click', function(e) {
-        e.stopPropagation();
-        
-        if (!e.target.classList.contains('toggle')) {
-            lastClickedPyramidBlock = block;
-            switchToChartWithTimeframe(block);
-        }
-    });
-    
-    return div;
-}
-
-window.toggleBlock = function(blockId, element) {
-    const children = document.getElementById(`children-${blockId}`);
-    if (!children) return;
-
-    const willExpand = children.classList.contains('hidden');
-    children.classList.toggle('hidden');
-
-    const icon = element.querySelector('span') || element;
-    icon.innerHTML = willExpand ? icon.innerHTML.replace('📁', '📂') : icon.innerHTML.replace('📂', '📁');
-    
-    if (willExpand) expandedBlocks.add(blockId);
-    else expandedBlocks.delete(blockId);
-};
-
-function switchToChartWithTimeframe(block) {
-    switchTab('chart');
-    
-    setTimeout(() => {
-        const timeframeSelect = document.getElementById('timeframeSelect');
-        if (timeframeSelect) {
-            timeframeSelect.value = block.tf;
-            loadChart(block.tf);
-        }
-    }, 150);
-}
-
-// UPDATED: Render function with better loading states
-function render(data) {
-    const scrollPos = window.scrollY;
-    pyramidDiv.innerHTML = '';
-    
-    if (!data || !data.blocks) {
-        pyramidDiv.innerHTML = '<div class="loading">📊 Loading pyramid data...</div>';
-        return;
-    }
-
-    if (status) status.textContent = `${currentPair} • ${pyramidStyleNames[currentPyramidStyle]}`;
-    if (updateInfo) updateInfo.textContent = `Last Updated: ${new Date().toLocaleString()}`;
-    
-    let visibleBlocksCount = 0;
-    data.blocks.forEach(block => {
-        const blockElement = createBlock(block);
-        if (blockElement) {
-            pyramidDiv.appendChild(blockElement);
-            visibleBlocksCount++;
-        }
-    });
-
-    if (visibleBlocksCount === 0) {
-        pyramidDiv.innerHTML = '<div class="loading">📊 Loading market data...</div>';
-    } else {
-        // Show live icon when data is successfully loaded
-        showLiveIcon();
-    }
-
-    window.scrollTo(0, scrollPos);
-}
-
-// UPDATED: Better error handling in updateDashboard
-function updateDashboard() {
-    fetch(`/api/pyramid?pair=${currentPair}&pyramid_style=${currentPyramidStyle}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(render)
-        .catch(error => {
-            console.error('Dashboard update error:', error);
-            if (status) status.textContent = '🔄 Updating market data...';
-            if (updateInfo) updateInfo.textContent = 'Connecting to data source...';
-            
-            // Keep existing blocks visible during errors
-            if (pyramidDiv.children.length === 0) {
-                pyramidDiv.innerHTML = '<div class="loading">📊 Connecting to market data...</div>';
-            }
-        })
-        .finally(() => {
-            // Always hide reloading sign after attempt
-            hideReloadingSign();
-        });
-}
-
-function changePyramidStyle(style) {
-    currentPyramidStyle = style;
-    
-    const selectedStructure = pyramidStructures[style];
-    Object.keys(timeframeVisibility).forEach(tf => {
-        timeframeVisibility[tf] = selectedStructure.includes(tf);
-    });
-    
-    const dropdown = document.getElementById('pyramidStyleSelect');
-    if (dropdown) dropdown.value = style;
-    
-    updateBackendSettings();
-    updateDashboard();
-}
-
-function updateBackendSettings() {
-    const settings = {
-        symbol: currentPair.replace('/', ''),
-        pyramid_style: currentPyramidStyle
+    const analysis = {
+        timeframeMomentum: [],
+        timeframeVolatility: [],
+        indicatorConsensus: [],
+        volumeAnalysis: []
     };
     
-    fetch('/api/update-settings', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(settings)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            console.log('✅ Backend settings updated:', data.message);
-        } else {
-            console.error('❌ Backend settings update failed:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Backend settings sync error:', error);
+    // Analyze each timeframe block
+    pyramidData.blocks.forEach(block => {
+        const blockAnalysis = analyzeTimeframeBlock(block);
+        analysis.timeframeMomentum.push(blockAnalysis.momentum);
+        analysis.timeframeVolatility.push(blockAnalysis.volatility);
+        analysis.indicatorConsensus.push(blockAnalysis.indicatorScore);
+        analysis.volumeAnalysis.push(blockAnalysis.volumeStrength);
     });
+    
+    // Calculate gauge values
+    gaugeValues.momentum = calculateMomentumConfluence(analysis.timeframeMomentum);
+    gaugeValues.volatility = calculateVolatilityConfluence(analysis.timeframeVolatility);
+    gaugeValues.strength = calculateStrengthConfluence(analysis);
+    gaugeValues.risk = calculateRiskAssessment(analysis);
+    
+    updateGauges();
+    return gaugeValues;
 }
 
-// UPDATED: changePair with better loading states
-function changePair(pair) {
-    currentPair = pair;
-    const pairsSelect = document.getElementById('pairsSelect');
-    if (pairsSelect) pairsSelect.value = pair;
-    
-    updateBackendSettings();
-    updateDashboard();
-    
-    if (currentTimeframe) {
-        loadChart(currentTimeframe);
-    }
-}
-
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    
-    const targetTab = document.getElementById(tabName + '-tab');
-    if (targetTab) targetTab.classList.add('active');
-    
-    event.target.classList.add('active');
-    
-    if (tabName === 'chart') {
-        setTimeout(() => {
-            if (!currentChart) {
-                loadChart(currentTimeframe);
-            }
-        }, 100);
-    }
-}
-
-// ==================== CHART SYSTEM ====================
-
-// Chart rendering and datasets
-function renderProfessionalChart(chartData, timeframe, symbol, indicators, indicators_data) {
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    
-    if (currentChart) currentChart.destroy();
-
-    currentIndicatorValues = indicators || {};
-    
-    const professionalTheme = {
-        primary: chartColors.line,
-        background: chartColors.areaFill,
-        grid: '#1E293B',
-        text: '#F1F5F9',
-        textSecondary: '#94A3B8',
-        accent: '#8B5CF6'
+// Analyze individual timeframe block
+function analyzeTimeframeBlock(block) {
+    const analysis = {
+        momentum: 0,
+        volatility: 0,
+        indicatorScore: 0,
+        volumeStrength: 0
     };
-
-    let datasets = [];
-
-    if (currentChartType === 'line') {
-        datasets = createLineDataset(chartData, symbol, professionalTheme);
-    } else if (currentChartType === 'area') {
-        datasets = createAreaDataset(chartData, symbol, professionalTheme);
-    } else if (currentChartType === 'candlestick') {
-        datasets = createCandlestickDataset(chartData, symbol, professionalTheme);
-    } else if (currentChartType === 'trend') {
-        datasets = createLineDataset(chartData, symbol, professionalTheme);
-    }
-
-    datasets = datasets.concat(createIndicatorDatasets(indicators_data, professionalTheme));
-
-    const chartType = currentChartType === 'candlestick' ? 'candlestick' : 'line';
     
-    currentChart = new Chart(ctx, {
-        type: chartType,
-        data: { datasets: datasets },
-        options: getEnhancedChartOptions(timeframe, professionalTheme)
-    });
-
-    initializeAxisIndicators();
-    addCrosshairListeners();
-    renderIndicatorsList();
+    // Momentum analysis (from block data)
+    if (block.dir === '🟢') analysis.momentum = 1;
+    else if (block.dir === '🔴') analysis.momentum = -1;
     
-    const latestPrice = chartData.length > 0 ? chartData[chartData.length - 1].y : 0;
-    updateCurrentPrice(latestPrice);
+    // Volatility analysis (placeholder - would use ATR data)
+    analysis.volatility = Math.random() * 100; // Replace with real ATR calculation
     
-    console.log(`✅ Chart rendered: ${symbol} ${timeframe} (${currentChartType})`);
+    // Indicator consensus (from momentum summary)
+    analysis.indicatorScore = analyzeMomentumSummary(block.momentum_summary);
+    
+    // Volume strength (from volume data)
+    analysis.volumeStrength = block.volume > 1000 ? 1 : 0.5;
+    
+    return analysis;
 }
 
-function loadChart(timeframe = 'H1') {
-    const chartStatus = document.getElementById('chartStatus');
-    if (!chartStatus) return;
+// Analyze momentum summary text
+function analyzeMomentumSummary(summary) {
+    if (!summary) return 50;
     
-    chartStatus.textContent = '🔄 Loading...';
+    let score = 50;
     
-    const indicatorParams = buildIndicatorParameters();
+    // Basic sentiment analysis from summary text
+    if (summary.includes('Strong') || summary.includes('++')) score += 25;
+    if (summary.includes('Weak') || summary.includes('--')) score -= 25;
+    if (summary.includes('🟢')) score += 15;
+    if (summary.includes('🔴')) score -= 15;
     
-    fetch(`/api/chart-data/${timeframe}?pair=${currentPair}&pyramid_style=${currentPyramidStyle}${indicatorParams}`)
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) {
-                chartStatus.textContent = `❌ ${data.error}`;
-                return;
-            }
-            
-            renderProfessionalChart(data.data, timeframe, currentPair, data.indicators, data.indicators_data);
-            chartStatus.textContent = `✅ ${currentPair} ${timeframe}`;
-            currentTimeframe = timeframe;
-            
-            if (lastClickedPyramidBlock) {
-                setTimeout(() => {
-                    triggerTooltipAtTime(lastClickedPyramidBlock.time);
-                    lastClickedPyramidBlock = null;
-                }, 500);
-            }
-        })
-        .catch(error => {
-            console.error('Chart loading error:', error);
-            chartStatus.textContent = '❌ Failed to load chart data';
-        });
+    return Math.max(0, Math.min(100, score));
 }
 
-function buildIndicatorParameters() {
-    let params = '';
-    activeIndicators.forEach((config, indicatorId) => {
-        const baseType = indicatorId.split('_')[0];
-        
-        switch(baseType) {
-            case 'sma': case 'ema': case 'rsi':
-                params += `&${baseType}_period=${config.period}`;
-                break;
-            case 'macd':
-                params += `&${baseType}_fast=${config.fastPeriod}&${baseType}_slow=${config.slowPeriod}&${baseType}_signal=${config.signalPeriod}`;
-                break;
-            case 'bollinger':
-                params += `&${baseType}_period=${config.period}&${baseType}_std=${config.stdDev}`;
-                break;
-            case 'stochastic':
-                params += `&${baseType}_k=${config.kPeriod}&${baseType}_k_smooth=${config.kSmooth}&${baseType}_d_smooth=${config.dSmooth}`;
-                break;
-        }
-        
-        params += `&${baseType}_instance=${config.instanceNumber}`;
+// Calculate momentum confluence
+function calculateMomentumConfluence(momentumScores) {
+    if (momentumScores.length === 0) return 50;
+    
+    // Weight recent timeframes more heavily
+    const weights = [0.3, 0.25, 0.2, 0.15, 0.1]; // D1, H4, H1, M15, M5 weights
+    let weightedSum = 0;
+    let totalWeight = 0;
+    
+    momentumScores.forEach((score, index) => {
+        const weight = weights[index] || 0.1;
+        weightedSum += (score + 1) * 50 * weight; // Convert -1/1 to 0-100 scale
+        totalWeight += weight;
     });
     
-    return params;
+    return Math.round(weightedSum / totalWeight);
 }
 
-// Chart dataset creators - FIXED CANDLESTICK
-function createCandlestickDataset(priceData, symbol, theme) {
-    return [{
-        label: `${symbol} Price`,
-        data: priceData.map(item => ({
-            x: item.x,
-            o: item.o,  // OPEN
-            h: item.h,  // HIGH  
-            l: item.l,  // LOW
-            c: item.c   // CLOSE
-        })),
-        borderColor: theme.primary,
-        backgroundColor: (ctx) => {
-            const item = ctx.raw;
-            return item.c >= item.o ? chartColors.bull : chartColors.bear;
-        },
-        borderWidth: 1,
-        pointRadius: 0,
-        yAxisID: 'y'
-    }];
+// Calculate volatility confluence
+function calculateVolatilityConfluence(volatilityScores) {
+    if (volatilityScores.length === 0) return 50;
+    return Math.round(volatilityScores.reduce((a, b) => a + b, 0) / volatilityScores.length);
 }
 
-function createLineDataset(priceData, symbol, theme) {
-    if (currentChartType === 'trend') {
-        return [{
-            label: `${symbol} Price`, data: priceData,
-            segment: { borderColor: (ctx) => {
-                if (ctx.p0.parsed.y === ctx.p1.parsed.y) return theme.primary;
-                return ctx.p1.parsed.y > ctx.p0.parsed.y ? chartColors.bull : chartColors.bear;
-            }},
-            borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.1, yAxisID: 'y', fill: false
-        }];
-    } else {
-        return [{
-            label: `${symbol} Price`, data: priceData, borderColor: theme.primary, backgroundColor: 'transparent',
-            borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.1, yAxisID: 'y', fill: false
-        }];
-    }
+// Calculate strength confluence
+function calculateStrengthConfluence(analysis) {
+    const momentumStrength = gaugeValues.momentum;
+    const consensusStrength = analysis.indicatorConsensus.reduce((a, b) => a + b, 0) / analysis.indicatorConsensus.length;
+    const volumeStrength = analysis.volumeAnalysis.reduce((a, b) => a + b, 0) / analysis.volumeAnalysis.length * 100;
+    
+    // Weighted average of all strength factors
+    return Math.round(
+        (momentumStrength * 0.4) + 
+        (consensusStrength * 0.4) + 
+        (volumeStrength * 0.2)
+    );
 }
 
-function createAreaDataset(priceData, symbol, theme) {
-    return [{
-        label: `${symbol} Price`, data: priceData, borderColor: theme.primary, backgroundColor: theme.background,
-        borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.1, yAxisID: 'y',
-        fill: { target: 'origin', above: theme.background }
-    }];
+// Calculate risk assessment
+function calculateRiskAssessment(analysis) {
+    const volatilityRisk = gaugeValues.volatility > 70 ? 80 : gaugeValues.volatility > 30 ? 50 : 20;
+    const momentumRisk = Math.abs(gaugeValues.momentum - 50) > 30 ? 70 : 40;
+    const consensusRisk = analysis.indicatorConsensus.some(score => score < 30) ? 60 : 30;
+    
+    return Math.round((volatilityRisk + momentumRisk + consensusRisk) / 3);
 }
 
-function createIndicatorDatasets(indicators_data, theme) {
-    const datasets = [];
-    if (!indicators_data) return datasets;
+// ==================== PROFESSIONAL GAUGE COMPONENTS ====================
+
+// Create professional gauge components
+function createGaugeComponents() {
+    const analysisContainer = document.getElementById('analysis-tab');
+    if (!analysisContainer) return;
     
-    activeIndicators.forEach((config, indicatorId) => {
-        if (!config.visible) return;
-        const baseType = indicatorId.split('_')[0];
-        
-        switch(baseType) {
-            case 'bollinger':
-                if (indicators_data.bollinger) {
-                    const bb = indicators_data.bollinger;
-                    datasets.push(
-                        { label: `${config.name} Upper`, data: bb.upper, borderColor: config.color, borderWidth: 1, pointRadius: 0, yAxisID: 'y', fill: false },
-                        { label: `${config.name} Middle`, data: bb.middle, borderColor: config.color, borderWidth: 1.5, pointRadius: 0, yAxisID: 'y', fill: false },
-                        { label: `${config.name} Lower`, data: bb.lower, borderColor: config.color, borderWidth: 1, pointRadius: 0, yAxisID: 'y', fill: false }
-                    );
-                }
-                break;
-            case 'stochastic':
-                if (indicators_data.stoch_k) {
-                    datasets.push({ label: `${config.name} %K`, data: indicators_data.stoch_k, borderColor: config.color, borderWidth: 1.5, pointRadius: 0, yAxisID: 'y2', fill: false });
-                }
-                if (indicators_data.stoch_d) {
-                    datasets.push({ label: `${config.name} %D`, data: indicators_data.stoch_d, borderColor: config.color, borderWidth: 1.5, borderDash: [5, 5], pointRadius: 0, yAxisID: 'y2', fill: false });
-                }
-                break;
-            case 'supportresistance':
-                if (indicators_data.support_resistance) {
-                    datasets.push({ label: 'Support/Resistance', data: [], srLevels: indicators_data.support_resistance, supportColor: config.supportColor, resistanceColor: config.resistanceColor });
-                }
-                break;
-            default:
-                const instanceNumber = config.instanceNumber;
-                const dataKeys = [`${baseType}_${config.period}`, `${baseType}_${instanceNumber}`, baseType, `${baseType}_20`, `${baseType}_12`];
-                
-                let indicatorData = null;
-                for (const key of dataKeys) {
-                    if (indicators_data[key]) {
-                        indicatorData = indicators_data[key];
-                        break;
-                    }
-                }
-                
-                if (indicatorData) {
-                    datasets.push({
-                        label: `${config.name} #${instanceNumber}`, data: indicatorData, borderColor: config.color, borderWidth: 1.5,
-                        borderDash: baseType === 'ema' ? [2, 2] : [0, 0], pointRadius: 0, tension: 0, yAxisID: config.yAxis || 'y', fill: false
-                    });
-                }
-                break;
-        }
-    });
-
-    return datasets;
-}
-
-// Chart options and configuration - FIXED TOOLTIP
-function getEnhancedChartOptions(timeframe, theme) {
-    return {
-        responsive: true, 
-        maintainAspectRatio: false,
-        interaction: { 
-            mode: 'nearest', 
-            intersect: false, 
-            axis: 'xy' 
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                mode: 'nearest',
-                intersect: false,
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                titleColor: theme.text,
-                bodyColor: theme.textSecondary,
-                borderColor: theme.grid,
-                borderWidth: 1,
-                cornerRadius: 6,
-                padding: 12,
-                callbacks: {
-                    title: function(context) {
-                        const date = new Date(context[0].parsed.x);
-                        return date.toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        });
-                    },
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        
-                        // CANDLESTICK TOOLTIP - show OHLC data
-                        if (currentChartType === 'candlestick' && context.raw) {
-                            const item = context.raw;
-                            label += ` O:${item.o.toFixed(5)} H:${item.h.toFixed(5)} L:${item.l.toFixed(5)} C:${item.c.toFixed(5)}`;
-                        } else {
-                            // LINE/AREA CHART TOOLTIP - show y value
-                            if (label) label += ': ';
-                            if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat('en-US', { 
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 5 
-                                }).format(context.parsed.y);
-                            }
-                        }
-                        return label;
-                    }
-                }
-            },
-            zoom: {
-                zoom: {
-                    wheel: { enabled: false }, // Disable wheel zoom - we handle this separately
-                    pinch: { enabled: true },
-                    mode: 'xy',
-                    drag: {
-                        enabled: isZoomModeActive, // Controlled by our toggle
-                        modifierKey: null,
-                        backgroundColor: isZoomModeActive ? 'rgba(58, 134, 255, 0.3)' : 'transparent', // Blue when ON, transparent when OFF
-                        borderColor: isZoomModeActive ? 'rgba(58, 134, 255, 0.8)' : 'transparent', // Blue when ON, transparent when OFF
-                        borderWidth: 1
-                    }
-                },
-                pan: {
-                    enabled: false, // REMOVED PANNING COMPLETELY
-                    mode: 'x'
-                }
-            }
-        },
-        scales: {
-            x: {
-                type: 'time',
-                time: {
-                    unit: getProfessionalTimeUnit(timeframe),
-                    displayFormats: getProfessionalTimeFormats(timeframe)
-                },
-                grid: { 
-                    color: theme.grid,
-                    drawBorder: false,
-                    borderColor: 'transparent',
-                    borderWidth: 0,
-                    drawOnChartArea: true,
-                    drawTicks: true,
-                    lineWidth: (ctx) => {
-                        // Frame grid effect - thicker outer lines
-                        if (ctx.index === 0 || ctx.index === ctx.tickCount - 1) return 2;
-                        return 1;
-                    }
-                },
-                ticks: { 
-                    color: theme.textSecondary,
-                    maxRotation: 0,
-                    autoSkip: true,
-                    maxTicksLimit: 8
-                },
-                border: { 
-                    display: false
-                }
-            },
-            y: {
-                position: 'right',
-                grid: { 
-                    color: theme.grid,
-                    drawBorder: false,
-                    borderColor: 'transparent',
-                    borderWidth: 0,
-                    drawOnChartArea: true,
-                    drawTicks: true,
-                    lineWidth: (ctx) => {
-                        // Frame grid effect - thicker outer lines
-                        if (ctx.index === 0 || ctx.index === ctx.tickCount - 1) return 2;
-                        return 1;
-                    }
-                },
-                ticks: { 
-                    color: theme.textSecondary,
-                    callback: (value) => value.toFixed(5),
-                    maxTicksLimit: 6
-                },
-                border: { 
-                    display: false
-                }
-            },
-            y2: {
-                type: 'linear',
-                position: 'left',
-                grid: { 
-                    drawOnChartArea: false,
-                    drawBorder: false,
-                    borderColor: 'transparent',
-                    borderWidth: 0,
-                    lineWidth: (ctx) => {
-                        // Frame grid effect - thicker outer lines
-                        if (ctx.index === 0 || ctx.index === ctx.tickCount - 1) return 2;
-                        return 1;
-                    }
-                },
-                ticks: { 
-                    color: '#F59E0B',
-                    callback: (value) => value.toFixed(2),
-                    maxTicksLimit: 5
-                },
-                border: { 
-                    display: false
-                },
-                min: 0,
-                max: 100
-            }
-        }
-    };
-}
-
-// Crosshair and interaction
-function initializeAxisIndicators() {
-    if (axisIndicators.yIndicator) axisIndicators.yIndicator.remove();
-    if (axisIndicators.xIndicator) axisIndicators.xIndicator.remove();
-    
-    const chartWrapper = document.querySelector('.chart-wrapper');
-    if (!chartWrapper) return;
-    
-    const yIndicator = document.createElement('div');
-    yIndicator.className = 'axis-indicator y-axis-indicator';
-    yIndicator.id = 'yAxisIndicator';
-    yIndicator.style.display = 'none';
-    
-    const xIndicator = document.createElement('div');
-    xIndicator.className = 'axis-indicator x-axis-indicator';
-    xIndicator.id = 'xAxisIndicator';
-    xIndicator.style.display = 'none';
-    
-    chartWrapper.appendChild(yIndicator);
-    chartWrapper.appendChild(xIndicator);
-    
-    axisIndicators.yIndicator = yIndicator;
-    axisIndicators.xIndicator = xIndicator;
-}
-
-function updateAxisIndicators(x, y, price, time) {
-    if (!axisIndicators.yIndicator || !axisIndicators.xIndicator) return;
-    
-    const chartArea = currentChart?.chartArea;
-    if (!chartArea) return;
-    
-    if (price !== null && y >= chartArea.top && y <= chartArea.bottom) {
-        axisIndicators.yIndicator.textContent = price.toFixed(5);
-        axisIndicators.yIndicator.style.top = `${y}px`;
-        axisIndicators.yIndicator.style.right = '0px';
-        axisIndicators.yIndicator.style.display = 'block';
-    } else axisIndicators.yIndicator.style.display = 'none';
-    
-    if (time && x >= chartArea.left && x <= chartArea.right) {
-        axisIndicators.xIndicator.textContent = time;
-        axisIndicators.xIndicator.style.left = `${x}px`;
-        axisIndicators.xIndicator.style.bottom = '0px';
-        axisIndicators.xIndicator.style.display = 'block';
-    } else axisIndicators.xIndicator.style.display = 'none';
-}
-
-function hideAxisIndicators() {
-    if (axisIndicators.yIndicator) axisIndicators.yIndicator.style.display = 'none';
-    if (axisIndicators.xIndicator) axisIndicators.xIndicator.style.display = 'none';
-}
-
-function addCrosshairListeners() {
-    const canvas = document.getElementById('mainChart');
-    if (!canvas) return;
-
-    crosshairVisible = false;
-    crosshairX = 0;
-    crosshairY = 0;
-    crosshairPrice = null;
-
-    canvas.addEventListener('mousemove', function(event) {
-        if (tooltipLocked) return;
-        if (!crosshairEnabled || !currentChart) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        crosshairX = event.clientX - rect.left;
-        crosshairY = event.clientY - rect.top;
-        crosshairVisible = true;
-        
-        const chartArea = currentChart.chartArea;
-        const yScale = currentChart.scales.y;
-        
-        if (yScale && chartArea) {
-            const pixelRange = chartArea.bottom - chartArea.top;
-            const valueRange = yScale.max - yScale.min;
-            const value = yScale.max - ((crosshairY - chartArea.top) / pixelRange) * valueRange;
-            crosshairPrice = value;
-            
-            updateCurrentPrice(value);
-            
-            const xScale = currentChart.scales.x;
-            const timeValue = xScale.getValueForPixel(crosshairX);
-            const timeText = timeValue ? new Date(timeValue).toLocaleTimeString() : '';
-            updateAxisIndicators(crosshairX, crosshairY, value, timeText);
-        }
-        
-        if (currentChart) currentChart.draw();
-    });
-
-    canvas.addEventListener('mouseleave', function() {
-        crosshairVisible = false;
-        crosshairPrice = null;
-        hideAxisIndicators();
-        if (currentChart) currentChart.draw();
-    });
-
-    if (currentChart) {
-        const originalDraw = currentChart.draw;
-        currentChart.draw = function() {
-            originalDraw.call(this);
-            if (crosshairEnabled) drawCrosshair();
-        };
-    }
-}
-
-function drawCrosshair() {
-    if (!crosshairEnabled || !crosshairVisible || !currentChart) return;
-
-    const ctx = currentChart.ctx;
-    const chartArea = currentChart.chartArea;
-    
-    if (crosshairX < chartArea.left || crosshairX > chartArea.right || crosshairY < chartArea.top || crosshairY > chartArea.bottom) return;
-
-    ctx.save();
-    ctx.strokeStyle = '#F59E0B';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
-    
-    ctx.beginPath();
-    ctx.moveTo(crosshairX, chartArea.top);
-    ctx.lineTo(crosshairX, chartArea.bottom);
-    ctx.stroke();
-    
-    ctx.beginPath();
-    ctx.moveTo(chartArea.left, crosshairY);
-    ctx.lineTo(chartArea.right, crosshairY);
-    ctx.stroke();
-    
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#F59E0B';
-    ctx.beginPath();
-    ctx.arc(crosshairX, crosshairY, 4, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.restore();
-}
-
-// Tooltip positioning
-function triggerTooltipAtTime(timestamp) {
-    if (!currentChart) return;
-    
-    const xScale = currentChart.scales.x;
-    if (!xScale) return;
-    
-    const pixel = xScale.getPixelForValue(new Date(timestamp));
-    const chartArea = currentChart.chartArea;
-    if (!chartArea) return;
-    
-    if (pixel < chartArea.left || pixel > chartArea.right) return;
-    
-    const canvas = document.getElementById('mainChart');
-    const mockEvent = new MouseEvent('mousemove', {
-        clientX: canvas.getBoundingClientRect().left + pixel,
-        clientY: canvas.getBoundingClientRect().top + chartArea.top + (chartArea.bottom - chartArea.top) / 2
-    });
-    
-    canvas.dispatchEvent(mockEvent);
-    console.log(`🎯 Triggered tooltip at timestamp: ${new Date(timestamp).toLocaleString()}`);
-}
-
-// Chart controls and utilities
-function setChartType(type) {
-    currentChartType = type;
-    
-    const chartTypeSelect = document.getElementById('chartTypeSelect');
-    if (chartTypeSelect) {
-        chartTypeSelect.value = type;
-    }
-    
-    if (currentTimeframe) {
-        loadChart(currentTimeframe);
-    }
-}
-
-function updateChartTimeframe() {
-    const timeframe = document.getElementById('timeframeSelect').value;
-    loadChart(timeframe);
-}
-
-// FIXED: Crosshair button with background feedback
-function toggleCrosshair() {
-    crosshairEnabled = !crosshairEnabled;
-    const crosshairBtn = document.getElementById('crosshairBtn');
-    
-    if (crosshairBtn) {
-        if (crosshairEnabled) {
-            crosshairBtn.innerHTML = '⊕';
-            crosshairBtn.classList.add('active');
-            crosshairBtn.style.backgroundColor = 'rgba(58, 134, 255, 0.3)'; // Blue when ON
-        } else {
-            crosshairBtn.innerHTML = '⊕';
-            crosshairBtn.classList.remove('active');
-            crosshairBtn.style.backgroundColor = 'transparent'; // No color when OFF
-        }
-    }
-    
-    if (currentChart) currentChart.draw();
-}
-
-function downloadChart() {
-    if (!currentChart) return;
-    
-    const canvas = document.getElementById('mainChart');
-    const link = document.createElement('a');
-    link.download = `chart-${currentPair}-${currentTimeframe}-${new Date().toISOString().split('T')[0]}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-}
-
-// ==================== ZOOM AND SCROLL FUNCTIONS ====================
-
-function zoomIn() {
-    if (!currentChart) return;
-  
-    // Toggle drag-to-zoom mode
-    if (isZoomModeActive && currentZoomMode === 'in') {
-        // Deactivate
-        isZoomModeActive = false;
-        currentZoomMode = null;
-        currentChart.options.plugins.zoom.zoom.drag.enabled = false;
-        updateZoomButtonState('reset');
-    } else {
-        // Activate drag-to-zoom
-        isZoomModeActive = true;
-        currentZoomMode = 'in';
-        currentChart.options.plugins.zoom.zoom.drag.enabled = true; // ENABLE DRAG
-        updateZoomButtonState('in');
-    }
-  
-    currentChart.update('none');
-}
-
-function resetZoom() {
-    if (!currentChart) return;
-    
-    // Reset zoom and pan
-    currentChart.resetZoom();
-    
-    // Also deactivate zoom mode if active
-    if (isZoomModeActive) {
-        isZoomModeActive = false;
-        currentZoomMode = null;
-        currentChart.options.plugins.zoom.zoom.drag.enabled = false;
-        updateZoomButtonState('reset');
-    }
-    
-    currentChart.update('none');
-}
-
-function updateZoomButtonState(state) {
-    const zoomBtn = document.querySelector('.control-btn[onclick*="zoomIn"]');
-    if (!zoomBtn) return;
-    
-    if (state === 'in') {
-        zoomBtn.innerHTML = '🔍';
-        zoomBtn.classList.add('active');
-    } else {
-        zoomBtn.innerHTML = '🔍';
-        zoomBtn.classList.remove('active');
-    }
-}
-
-function initializeChartScroll() {
-    const canvas = document.getElementById('mainChart');
-    if (!canvas) return;
-   
-    canvas.addEventListener('wheel', function(event) {
-        if (!currentChart) return;
-       
-        event.preventDefault();
-       
-        // Only allow horizontal scrolling (left/right)
-        const xScale = currentChart.scales.x;
-        if (!xScale) return;
-       
-        const currentMin = xScale.min;
-        const currentMax = xScale.max;
-        const range = currentMax - currentMin;
-        const scrollSpeed = range * SCROLL_SENSITIVITY; // Set to 0.025 for better scrolling
-       
-        if (event.deltaY > 0) {
-            // Scroll right (forward in time)
-            currentChart.options.scales.x.min = currentMin + scrollSpeed;
-            currentChart.options.scales.x.max = currentMax + scrollSpeed;
-        } else {
-            // Scroll left (back in time)
-            currentChart.options.scales.x.min = currentMin - scrollSpeed;
-            currentChart.options.scales.x.max = currentMax - scrollSpeed;
-        }
-       
-        currentChart.update('none');
-    });
-}
-
-// Chart time utilities
-function getProfessionalTimeUnit(timeframe) {
-    const units = {
-        'M1': 'minute', 'M5': 'minute', 'M15': 'minute',
-        'H1': 'hour', 'H4': 'hour', 'D1': 'day'
-    };
-    return units[timeframe] || 'hour';
-}
-
-function getProfessionalTimeFormats(timeframe) {
-    return {
-        minute: 'HH:mm',
-        hour: 'MMM dd HH:mm',
-        day: 'MMM dd, yyyy'
-    };
-}
-
-// ==================== INDICATORS MANAGEMENT ====================
-
-function initializeIndicatorsPanel() {
-    renderIndicatorsList();
-}
-
-function toggleIndicatorsPanel() {
-    const panel = document.getElementById('indicatorsPanel');
-    panel.classList.toggle('collapsed');
-}
-
-function addIndicatorFromDropdown(indicatorType) {
-    if (!indicatorType) return;
-    
-    const dropdown = document.getElementById('indicatorsDropdown');
-    if (dropdown) dropdown.value = '';
-    
-    const instanceNumber = getNextAvailableInstanceNumber(indicatorType);
-    const indicatorId = `${indicatorType}_${instanceNumber}`;
-    
-    const baseConfig = getIndicatorBaseConfig(indicatorType);
-    if (!baseConfig) return;
-    
-    activeIndicators.set(indicatorId, { 
-        ...baseConfig, 
-        id: indicatorId,
-        instanceNumber: instanceNumber,
-        visible: true,
-        settingsVisible: true
-    });
-    
-    indicatorInstances[indicatorType].push(instanceNumber);
-    renderIndicatorsList();
-    
-    if (currentTimeframe) {
-        loadChart(currentTimeframe);
-    }
-    
-    console.log(`✅ Added indicator: ${indicatorType} #${instanceNumber}`);
-}
-
-function getNextAvailableInstanceNumber(indicatorType) {
-    const instances = indicatorInstances[indicatorType];
-    if (instances.length === 0) return 1;
-    
-    for (let i = 1; i <= instances.length + 1; i++) {
-        if (!instances.includes(i)) return i;
-    }
-    
-    return Math.max(...instances) + 1;
-}
-
-function getIndicatorBaseConfig(type) {
-    const baseConfigs = {
-        'sma': { name: 'SMA', period: 20, color: '#00D394', minPeriod: 1, maxPeriod: 200 },
-        'ema': { name: 'EMA', period: 12, color: '#3A86FF', minPeriod: 1, maxPeriod: 200 },
-        'rsi': { name: 'RSI', period: 14, color: '#F59E0B', minPeriod: 1, maxPeriod: 50, yAxis: 'y2' },
-        'macd': { name: 'MACD', fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, color: '#10B981', minPeriod: 1, maxPeriod: 50 },
-        'bollinger': { name: 'Bollinger', period: 20, stdDev: 2, color: '#EF4444', minPeriod: 1, maxPeriod: 50 },
-        'stochastic': { name: 'Stochastic', kPeriod: 14, kSmooth: 3, dSmooth: 3, color: '#8B5CF6', minPeriod: 1, maxPeriod: 50, yAxis: 'y2' },
-        'supportresistance': { name: 'Support/Resistance', supportColor: '#00D394', resistanceColor: '#FF4D4D' }
-    };
-    return baseConfigs[type];
-}
-
-function removeIndicator(indicatorId) {
-    if (activeIndicators.has(indicatorId)) {
-        const indicator = activeIndicators.get(indicatorId);
-        const indicatorType = indicatorId.split('_')[0];
-        const instanceNumber = indicator.instanceNumber;
-        
-        indicatorInstances[indicatorType] = indicatorInstances[indicatorType].filter(
-            num => num !== instanceNumber
-        );
-        
-        activeIndicators.delete(indicatorId);
-        renderIndicatorsList();
-        
-        if (currentTimeframe) {
-            loadChart(currentTimeframe);
-        }
-        console.log(`🗑️ Removed indicator: ${indicatorId}`);
-    }
-}
-
-function updateIndicatorSetting(indicatorId, setting, value) {
-    const indicator = activeIndicators.get(indicatorId);
-    if (indicator) {
-        if (setting.includes('Period') || setting === 'period' || setting === 'stdDev' || setting === 'kSmooth' || setting === 'dSmooth') {
-            value = parseInt(value);
-            const minVal = indicator.minPeriod || 1;
-            const maxVal = indicator.maxPeriod || 200;
-            if (value < minVal) value = minVal;
-            if (value > maxVal) value = maxVal;
-        }
-        
-        indicator[setting] = value;
-        activeIndicators.set(indicatorId, indicator);
-        
-        if (currentTimeframe) {
-            loadChart(currentTimeframe);
-        }
-    }
-}
-
-function toggleIndicatorSettings(indicatorId) {
-    const indicator = activeIndicators.get(indicatorId);
-    if (indicator) {
-        indicator.settingsVisible = !indicator.settingsVisible;
-        activeIndicators.set(indicatorId, indicator);
-        renderIndicatorsList();
-        console.log(`⚙️ Toggled settings for: ${indicatorId}`);
-    }
-}
-
-function renderIndicatorsList() {
-    const indicatorsList = document.getElementById('indicatorsList');
-    if (!indicatorsList) return;
-
-    if (activeIndicators.size === 0) {
-        indicatorsList.innerHTML = '<div class="no-indicators">No indicators added</div>';
-        return;
-    }
-
-    indicatorsList.innerHTML = Array.from(activeIndicators.entries()).map(([id, config]) => {
-        const value = getIndicatorDisplayValue(id, config);
-        const settingsHtml = generateIndicatorSettings(id, config);
-        
-        return `
-            <div class="indicator-item ${config.visible ? 'active' : ''}">
-                <div class="indicator-header" onclick="toggleIndicatorSettings('${id}')">
-                    <div class="indicator-title">
-                        <span class="indicator-status">●</span>
-                        ${config.name} #${config.instanceNumber}
+    // Add gauges container if it doesn't exist
+    if (!document.getElementById('gauges-container')) {
+        const gaugesHTML = `
+            <div class="gauges-container" id="gauges-container">
+                <div class="gauge-row">
+                    <div class="gauge-item">
+                        <div class="gauge-title">Momentum</div>
+                        ${createProfessionalGaugeLayer('momentum', 50)}
                     </div>
-                    <div class="indicator-value">${value}</div>
+                    
+                    <div class="gauge-item">
+                        <div class="gauge-title">Volatility</div>
+                        ${createProfessionalGaugeLayer('volatility', 50)}
+                    </div>
+                    
+                    <div class="gauge-item">
+                        <div class="gauge-title">Strength</div>
+                        ${createProfessionalGaugeLayer('strength', 50)}
+                    </div>
+                    
+                    <div class="gauge-item">
+                        <div class="gauge-title">Risk</div>
+                        ${createProfessionalGaugeLayer('risk', 50)}
+                    </div>
                 </div>
-                ${config.settingsVisible ? `
-                    <div class="indicator-settings">
-                        ${settingsHtml}
-                        <div class="indicator-actions">
-                            <button class="indicator-btn remove" onclick="removeIndicator('${id}')">Remove Line</button>
+            </div>
+        `;
+        
+        analysisContainer.insertAdjacentHTML('afterbegin', gaugesHTML);
+    }
+}
+
+// ------------------------------------------------------------
+//  PROFESSIONAL GAUGE LAYER - Enhanced Visual Design
+// ------------------------------------------------------------
+function createProfessionalGaugeLayer(type, value) {
+    return `
+        <div class="gauge-container">
+            <!-- Background Arc -->
+            <div class="gauge-arc">
+                <div class="gauge-arc-fill" id="${type}-arc"></div>
+            </div>
+            
+            <!-- Center Hub -->
+            <div class="gauge-hub"></div>
+            
+            <!-- Needle with smooth pivot -->
+            <div class="gauge-needle-container">
+                <div class="gauge-needle" id="${type}-needle">
+                    <div class="needle-head"></div>
+                </div>
+            </div>
+            
+            <!-- Value Display -->
+            <div class="gauge-value-container">
+                <div class="gauge-score" id="${type}-score">${Math.round(value)}</div>
+                <div class="gauge-unit">%</div>
+            </div>
+            
+            <!-- Label with colored indicator -->
+            <div class="gauge-label-container">
+                <div class="gauge-label" id="${type}-label"></div>
+                <div class="gauge-indicator-dot" id="${type}-indicator"></div>
+            </div>
+            
+            <!-- Threshold Markers -->
+            <div class="gauge-markers">
+                <div class="marker marker-0">0</div>
+                <div class="marker marker-25">25</div>
+                <div class="marker marker-50">50</div>
+                <div class="marker marker-75">75</div>
+                <div class="marker marker-100">100</div>
+            </div>
+        </div>
+    `;
+}
+
+// ------------------------------------------------------------
+//  ENHANCED GAUGE UPDATE WITH SMOOTH ANIMATIONS
+// ------------------------------------------------------------
+function updateGauge(type, value) {
+    const needle = document.getElementById(`${type}-needle`);
+    const scoreEl = document.getElementById(`${type}-score`);
+    const labelEl = document.getElementById(`${type}-label`);
+    const arcEl = document.getElementById(`${type}-arc`);
+    const indicatorEl = document.getElementById(`${type}-indicator`);
+
+    if (!needle || !scoreEl || !labelEl || !arcEl || !indicatorEl) return;
+
+    // Smooth value transition
+    const currentValue = parseInt(scoreEl.textContent) || 0;
+    const valueDiff = Math.abs(value - currentValue);
+    const transitionTime = Math.min(1000, valueDiff * 10); // Dynamic timing
+
+    // Apply smooth transitions
+    needle.style.transition = `transform ${transitionTime}ms cubic-bezier(0.34, 1.56, 0.64, 1)`;
+    arcEl.style.transition = `background ${transitionTime}ms ease-out`;
+    indicatorEl.style.transition = `background ${transitionTime}ms ease-out`;
+
+    // 1. Needle rotation (-135° to +135°)
+    const rotation = (value / 100) * 270 - 135;
+    needle.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+
+    // 2. Score with counting animation
+    animateValue(scoreEl, currentValue, value, transitionTime);
+
+    // 3. Dynamic arc color
+    updateGaugeArc(type, value, arcEl);
+
+    // 4. Label + Color with indicator
+    updateGaugeLabelWithColor(type, value, labelEl, indicatorEl);
+}
+
+// ------------------------------------------------------------
+//  SMOOTH VALUE COUNTING ANIMATION
+// ------------------------------------------------------------
+function animateValue(element, start, end, duration) {
+    const startTime = performance.now();
+    const change = end - start;
+
+    function updateValue(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function for smooth counting
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const currentValue = Math.round(start + change * easeOut);
+        
+        element.textContent = currentValue;
+
+        if (progress < 1) {
+            requestAnimationFrame(updateValue);
+        }
+    }
+
+    requestAnimationFrame(updateValue);
+}
+
+// ------------------------------------------------------------
+//  DYNAMIC GAUGE ARC COLOR
+// ------------------------------------------------------------
+function updateGaugeArc(type, value, arcEl) {
+    const hue = value >= 50 ? 
+        120 + (value - 50) * 1.2 : // Green to brighter green (50-100)
+        30 - (50 - value) * 0.6;   // Orange to red (0-50)
+    
+    const saturation = 85;
+    const lightness = value >= 50 ? 
+        40 + (value - 50) * 0.3 :  // Darker to lighter green
+        50 - (50 - value) * 0.2;   // Lighter to darker red
+
+    arcEl.style.background = `conic-gradient(
+        from -135deg,
+        hsl(${hue}, ${saturation}%, ${lightness}%) 0%,
+        hsl(${hue}, ${saturation}%, ${lightness}%) ${value}%,
+        rgba(255, 255, 255, 0.1) ${value}%,
+        rgba(255, 255, 255, 0.1) 100%
+    )`;
+}
+
+// ------------------------------------------------------------
+//  ENHANCED LABEL WITH INDICATOR DOT
+// ------------------------------------------------------------
+function updateGaugeLabelWithColor(type, value, labelEl, indicatorEl) {
+    value = Math.max(0, Math.min(100, value));
+
+    const CONFIG = {
+        momentum: {
+            thresholds: [0, 15, 30, 45, 55, 70, 85, 100],
+            labels: ['Extreme Bear','Strong Bear','Bearish','Neutral','Bullish','Strong Bull','Extreme Bull'],
+            colors: ['#dc2626', '#ef4444', '#f87171', '#9ca3af', '#60a5fa', '#3b82f6', '#1d4ed8']
+        },
+        volatility: {
+            thresholds: [0, 20, 40, 60, 80, 100],
+            labels: ['Very Low', 'Low', 'Medium', 'High', 'Extreme'],
+            colors: ['#16a34a', '#22c55e', '#eab308', '#f97316', '#dc2626']
+        },
+        strength: {
+            thresholds: [0, 20, 40, 60, 80, 100],
+            labels: ['Very Weak', 'Weak', 'Moderate', 'Strong', 'Very Strong'],
+            colors: ['#dc2626', '#ef4444', '#eab308', '#22c55e', '#16a34a']
+        },
+        risk: {
+            thresholds: [0, 20, 40, 60, 80, 100],
+            labels: ['Very Low', 'Low', 'Medium', 'High', 'Very High'],
+            colors: ['#16a34a', '#22c55e', '#eab308', '#f97316', '#dc2626']
+        }
+    };
+
+    const cfg = CONFIG[type];
+    if (!cfg) { 
+        labelEl.textContent = '—'; 
+        indicatorEl.style.background = '#9ca3af';
+        return; 
+    }
+
+    // Find appropriate bucket
+    let idx = cfg.thresholds.length - 1;
+    for (let i = 0; i < cfg.thresholds.length - 1; i++) {
+        if (value < cfg.thresholds[i + 1]) { 
+            idx = i; 
+            break; 
+        }
+    }
+
+    labelEl.textContent = cfg.labels[idx];
+    labelEl.style.color = cfg.colors[idx];
+    indicatorEl.style.background = cfg.colors[idx];
+    
+    // Add glow effect for extreme values
+    if (value >= 85 || value <= 15) {
+        indicatorEl.style.boxShadow = `0 0 8px ${cfg.colors[idx]}80`;
+    } else {
+        indicatorEl.style.boxShadow = 'none';
+    }
+}
+
+// Update all gauges with professional animations
+function updateGauges() {
+    updateGauge('momentum', gaugeValues.momentum);
+    updateGauge('volatility', gaugeValues.volatility);
+    updateGauge('strength', gaugeValues.strength);
+    updateGauge('risk', gaugeValues.risk);
+}
+
+// ==================== ENHANCED ANALYSIS COMPONENTS ====================
+
+// Initialize enhanced analysis components
+function initializeEnhancedAnalysis() {
+    createMultiTimeframePanel();
+    createIndicatorConsensusPanel();
+    createMarketStructurePanel();
+    createTradingSetupPanel();
+    createVolumeAnalysisPanel();
+}
+
+// Create multi-timeframe strength panel
+function createMultiTimeframePanel() {
+    const analysisContainer = document.getElementById('analysis-tab');
+    if (!analysisContainer) return;
+    
+    const timeframeHTML = `
+        <div class="analysis-section" id="timeframe-strength-section">
+            <h3>📈 Multi-Timeframe Strength</h3>
+            <div class="timeframe-strength-container" id="timeframe-strength-container">
+                <!-- Timeframe strength bars will be populated here -->
+            </div>
+        </div>
+    `;
+    
+    // Insert after gauges container
+    const gaugesContainer = document.getElementById('gauges-container');
+    if (gaugesContainer) {
+        gaugesContainer.insertAdjacentHTML('afterend', timeframeHTML);
+    }
+}
+
+// Create indicator consensus panel
+function createIndicatorConsensusPanel() {
+    const analysisContainer = document.getElementById('analysis-tab');
+    if (!analysisContainer) return;
+    
+    const consensusHTML = `
+        <div class="analysis-section" id="indicator-consensus-section">
+            <h3>🎯 Indicator Consensus</h3>
+            <div class="consensus-container" id="consensus-container">
+                <div class="consensus-meters">
+                    <div class="consensus-meter">
+                        <div class="meter-label">Trend Indicators</div>
+                        <div class="meter-bar">
+                            <div class="meter-fill" id="trend-consensus-fill" style="width: 0%"></div>
                         </div>
+                        <div class="meter-value" id="trend-consensus-value">0%</div>
+                    </div>
+                    <div class="consensus-meter">
+                        <div class="meter-label">Momentum Indicators</div>
+                        <div class="meter-bar">
+                            <div class="meter-fill" id="momentum-consensus-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="meter-value" id="momentum-consensus-value">0%</div>
+                    </div>
+                    <div class="consensus-meter">
+                        <div class="meter-label">Volatility Indicators</div>
+                        <div class="meter-bar">
+                            <div class="meter-fill" id="volatility-consensus-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="meter-value" id="volatility-consensus-value">0%</div>
+                    </div>
+                </div>
+                <div class="consensus-summary" id="consensus-summary">
+                    <div class="consensus-status">Analyzing indicator alignment...</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const timeframeSection = document.getElementById('timeframe-strength-section');
+    if (timeframeSection) {
+        timeframeSection.insertAdjacentHTML('afterend', consensusHTML);
+    }
+}
+
+// Create market structure panel
+function createMarketStructurePanel() {
+    const analysisContainer = document.getElementById('analysis-tab');
+    if (!analysisContainer) return;
+    
+    const structureHTML = `
+        <div class="analysis-section" id="market-structure-section">
+            <h3>🏗️ Market Structure</h3>
+            <div class="structure-container" id="structure-container">
+                <div class="structure-levels">
+                    <div class="levels-group">
+                        <h4>Resistance Levels</h4>
+                        <div class="levels-list" id="resistance-levels">
+                            <!-- Resistance levels will be populated here -->
+                        </div>
+                    </div>
+                    <div class="levels-group">
+                        <h4>Support Levels</h4>
+                        <div class="levels-list" id="support-levels">
+                            <!-- Support levels will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="structure-trend">
+                    <div class="trend-indicator">
+                        <span class="trend-label">Primary Trend:</span>
+                        <span class="trend-value" id="primary-trend">Analyzing...</span>
+                    </div>
+                    <div class="trend-strength">
+                        <span class="trend-label">Trend Strength:</span>
+                        <div class="trend-bar">
+                            <div class="trend-fill" id="trend-strength-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const consensusSection = document.getElementById('indicator-consensus-section');
+    if (consensusSection) {
+        consensusSection.insertAdjacentHTML('afterend', structureHTML);
+    }
+}
+
+// Create trading setup panel
+function createTradingSetupPanel() {
+    const analysisContainer = document.getElementById('analysis-tab');
+    if (!analysisContainer) return;
+    
+    const setupHTML = `
+        <div class="analysis-section" id="trading-setup-section">
+            <h3>💰 Trading Setups</h3>
+            <div class="setups-container" id="setups-container">
+                <div class="setup-cards" id="setup-cards">
+                    <!-- Trading setup cards will be populated here -->
+                </div>
+                <div class="setup-metrics">
+                    <div class="metric-item">
+                        <span class="metric-label">Avg. Risk/Reward:</span>
+                        <span class="metric-value" id="avg-risk-reward">1:1.5</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Success Probability:</span>
+                        <span class="metric-value" id="success-probability">65%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Market Condition:</span>
+                        <span class="metric-value" id="market-condition">Trending</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const structureSection = document.getElementById('market-structure-section');
+    if (structureSection) {
+        structureSection.insertAdjacentHTML('afterend', setupHTML);
+    }
+}
+
+// Create volume analysis panel
+function createVolumeAnalysisPanel() {
+    const analysisContainer = document.getElementById('analysis-tab');
+    if (!analysisContainer) return;
+    
+    const volumeHTML = `
+        <div class="analysis-section" id="volume-analysis-section">
+            <h3>📊 Volume Analysis</h3>
+            <div class="volume-container" id="volume-container">
+                <div class="volume-metrics">
+                    <div class="volume-metric">
+                        <div class="volume-label">Volume Trend</div>
+                        <div class="volume-value" id="volume-trend">Neutral</div>
+                    </div>
+                    <div class="volume-metric">
+                        <div class="volume-label">Volume vs Avg</div>
+                        <div class="volume-value" id="volume-vs-avg">+15%</div>
+                    </div>
+                    <div class="volume-metric">
+                        <div class="volume-label">Volume Confirmation</div>
+                        <div class="volume-value" id="volume-confirmation">Strong</div>
+                    </div>
+                </div>
+                <div class="volume-bars">
+                    <div class="volume-bar-container">
+                        <div class="volume-bar-label">D1</div>
+                        <div class="volume-bar">
+                            <div class="volume-bar-fill" id="volume-d1" style="height: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="volume-bar-container">
+                        <div class="volume-bar-label">H4</div>
+                        <div class="volume-bar">
+                            <div class="volume-bar-fill" id="volume-h4" style="height: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="volume-bar-container">
+                        <div class="volume-bar-label">H1</div>
+                        <div class="volume-bar">
+                            <div class="volume-bar-fill" id="volume-h1" style="height: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="volume-bar-container">
+                        <div class="volume-bar-label">M15</div>
+                        <div class="volume-bar">
+                            <div class="volume-bar-fill" id="volume-m15" style="height: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const setupSection = document.getElementById('trading-setup-section');
+    if (setupSection) {
+        setupSection.insertAdjacentHTML('afterend', volumeHTML);
+    }
+}
+
+// ==================== ENHANCED ANALYSIS UPDATES ====================
+
+// Update all enhanced analysis components
+function updateEnhancedAnalysis(pyramidData, chartData) {
+    updateMultiTimeframeStrength(pyramidData);
+    updateIndicatorConsensus(pyramidData);
+    updateMarketStructure(chartData);
+    updateTradingSetups(pyramidData, chartData);
+    updateVolumeAnalysis(pyramidData);
+}
+
+// Update multi-timeframe strength bars
+function updateMultiTimeframeStrength(pyramidData) {
+    const container = document.getElementById('timeframe-strength-container');
+    if (!container || !pyramidData.blocks) return;
+    
+    let strengthHTML = '';
+    pyramidData.blocks.forEach((block, index) => {
+        const strength = calculateTimeframeStrength(block);
+        const strengthPercent = Math.round(strength * 100);
+        const strengthClass = getStrengthClass(strengthPercent);
+        
+        strengthHTML += `
+            <div class="timeframe-strength-item">
+                <div class="timeframe-label">${block.tf}</div>
+                <div class="strength-bar-container">
+                    <div class="strength-bar">
+                        <div class="strength-fill ${strengthClass}" style="width: ${strengthPercent}%"></div>
+                    </div>
+                    <div class="strength-value ${strengthClass}">${strengthPercent}%</div>
+                </div>
+                <div class="timeframe-direction ${block.dir === '🟢' ? 'bullish' : 'bearish'}">
+                    ${block.dir}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = strengthHTML;
+}
+
+// Update indicator consensus
+function updateIndicatorConsensus(pyramidData) {
+    const consensus = calculateIndicatorConsensus(pyramidData);
+    
+    // Update trend consensus
+    document.getElementById('trend-consensus-fill').style.width = consensus.trend + '%';
+    document.getElementById('trend-consensus-value').textContent = consensus.trend + '%';
+    
+    // Update momentum consensus
+    document.getElementById('momentum-consensus-fill').style.width = consensus.momentum + '%';
+    document.getElementById('momentum-consensus-value').textContent = consensus.momentum + '%';
+    
+    // Update volatility consensus
+    document.getElementById('volatility-consensus-fill').style.width = consensus.volatility + '%';
+    document.getElementById('volatility-consensus-value').textContent = consensus.volatility + '%';
+    
+    // Update consensus summary
+    const summaryElement = document.getElementById('consensus-summary');
+    if (summaryElement) {
+        const overallConsensus = Math.round((consensus.trend + consensus.momentum + consensus.volatility) / 3);
+        const consensusClass = getConsensusClass(overallConsensus);
+        summaryElement.innerHTML = `
+            <div class="consensus-status ${consensusClass}">
+                Overall Consensus: ${overallConsensus}% - ${getConsensusText(overallConsensus)}
+            </div>
+        `;
+    }
+}
+
+// Update market structure
+function updateMarketStructure(chartData) {
+    const structure = analyzeMarketStructure(chartData);
+    
+    // Update resistance levels
+    const resistanceElement = document.getElementById('resistance-levels');
+    if (resistanceElement) {
+        resistanceElement.innerHTML = structure.resistanceLevels.map(level => 
+            `<div class="level-item resistance">${level.toFixed(5)}</div>`
+        ).join('');
+    }
+    
+    // Update support levels
+    const supportElement = document.getElementById('support-levels');
+    if (supportElement) {
+        supportElement.innerHTML = structure.supportLevels.map(level => 
+            `<div class="level-item support">${level.toFixed(5)}</div>`
+        ).join('');
+    }
+    
+    // Update trend information
+    document.getElementById('primary-trend').textContent = structure.primaryTrend;
+    document.getElementById('primary-trend').className = `trend-value ${structure.primaryTrend.toLowerCase()}`;
+    document.getElementById('trend-strength-fill').style.width = structure.trendStrength + '%';
+}
+
+// Update trading setups
+function updateTradingSetups(pyramidData, chartData) {
+    const setups = generateTradingSetups(pyramidData, chartData);
+    const container = document.getElementById('setup-cards');
+    if (!container) return;
+    
+    if (setups.length === 0) {
+        container.innerHTML = '<div class="no-setups">No high-probability setups detected</div>';
+        return;
+    }
+    
+    container.innerHTML = setups.map(setup => `
+        <div class="setup-card ${setup.direction}">
+            <div class="setup-header">
+                <span class="setup-type">${setup.type}</span>
+                <span class="setup-confidence ${getConfidenceClass(setup.confidence)}">
+                    ${setup.confidence}%
+                </span>
+            </div>
+            <div class="setup-details">
+                <div class="setup-direction ${setup.direction}">${setup.direction.toUpperCase()}</div>
+                <div class="setup-metrics">
+                    <div class="setup-metric">
+                        <span>R:R</span>
+                        <span>${setup.riskReward}</span>
+                    </div>
+                    <div class="setup-metric">
+                        <span>Stop Loss</span>
+                        <span>${setup.stopLoss}</span>
+                    </div>
+                    <div class="setup-metric">
+                        <span>Target</span>
+                        <span>${setup.target}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Update volume analysis
+function updateVolumeAnalysis(pyramidData) {
+    const volumeAnalysis = analyzeVolume(pyramidData);
+    
+    // Update volume metrics
+    document.getElementById('volume-trend').textContent = volumeAnalysis.trend;
+    document.getElementById('volume-trend').className = `volume-value ${volumeAnalysis.trend.toLowerCase()}`;
+    
+    document.getElementById('volume-vs-avg').textContent = volumeAnalysis.vsAverage;
+    document.getElementById('volume-confirmation').textContent = volumeAnalysis.confirmation;
+    document.getElementById('volume-confirmation').className = `volume-value ${volumeAnalysis.confirmation.toLowerCase()}`;
+    
+    // Update volume bars
+    document.getElementById('volume-d1').style.height = volumeAnalysis.timeframes.D1 + '%';
+    document.getElementById('volume-h4').style.height = volumeAnalysis.timeframes.H4 + '%';
+    document.getElementById('volume-h1').style.height = volumeAnalysis.timeframes.H1 + '%';
+    document.getElementById('volume-m15').style.height = volumeAnalysis.timeframes.M15 + '%';
+}
+
+// ==================== ANALYSIS CALCULATIONS ====================
+
+// Calculate timeframe strength
+function calculateTimeframeStrength(block) {
+    // Simple strength calculation based on momentum summary
+    let strength = 0.5; // Default neutral
+    
+    if (block.momentum_summary) {
+        if (block.momentum_summary.includes('Strong')) strength = 0.8;
+        else if (block.momentum_summary.includes('Weak')) strength = 0.3;
+        
+        if (block.dir === '🟢') strength += 0.1;
+        else if (block.dir === '🔴') strength -= 0.1;
+    }
+    
+    return Math.max(0, Math.min(1, strength));
+}
+
+// Calculate indicator consensus
+function calculateIndicatorConsensus(pyramidData) {
+    // Simplified consensus calculation
+    return {
+        trend: Math.round(70 + Math.random() * 20), // Would use real indicator data
+        momentum: Math.round(60 + Math.random() * 30),
+        volatility: Math.round(50 + Math.random() * 40)
+    };
+}
+
+// Analyze market structure (placeholder - would use real chart data)
+function analyzeMarketStructure(chartData) {
+    return {
+        resistanceLevels: [1.0950, 1.0975, 1.1000],
+        supportLevels: [1.0900, 1.0880, 1.0850],
+        primaryTrend: 'Bullish',
+        trendStrength: 75
+    };
+}
+
+// Generate trading setups (placeholder)
+function generateTradingSetups(pyramidData, chartData) {
+    const setups = [];
+    
+    // Example setup
+    if (gaugeValues.momentum > 70) {
+        setups.push({
+            type: 'Momentum Breakout',
+            direction: 'long',
+            confidence: 75,
+            riskReward: '1:2.5',
+            stopLoss: '1.0880',
+            target: '1.1020'
+        });
+    }
+    
+    return setups;
+}
+
+// Analyze volume (placeholder)
+function analyzeVolume(pyramidData) {
+    return {
+        trend: 'Increasing',
+        vsAverage: '+25%',
+        confirmation: 'Strong',
+        timeframes: {
+            D1: 80,
+            H4: 65,
+            H1: 45,
+            M15: 30
+        }
+    };
+}
+
+// ==================== ENHANCED ANALYSIS DISPLAY ====================
+
+// Update analysis data with confluence calculation
+function updateAnalysis(data) {
+    if (!data) return;
+    
+    currentAnalysis = data;
+    
+    // Calculate confluence if we have pyramid data
+    if (data.blocks) {
+        calculateConfluence(data);
+        updateEnhancedAnalysis(data, {});
+    }
+    
+    renderTechnicalSummary(data);
+    renderTradingSignals(data);
+    renderMarketStructure(data);
+    
+    // Check for alerts based on confluence
+    checkConfluenceAlerts();
+}
+
+// Enhanced technical summary with confluence
+function renderTechnicalSummary(data) {
+    const summaryElement = document.getElementById('technicalSummary');
+    if (!summaryElement) return;
+    
+    if (data.error) {
+        summaryElement.innerHTML = `<div class="error">${data.error}</div>`;
+        return;
+    }
+    
+    const momentumText = getMomentumText(gaugeValues.momentum);
+    const strengthText = getStrengthText(gaugeValues.strength);
+    const riskText = getRiskText(gaugeValues.risk);
+    
+    summaryElement.innerHTML = `
+        <div class="summary-content">
+            <div class="summary-item">
+                <span class="label">Market Confluence:</span>
+                <span class="value ${getMomentumClass(gaugeValues.momentum)}">${momentumText}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Trend Strength:</span>
+                <span class="value ${getStrengthClass(gaugeValues.strength)}">${strengthText}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Risk Level:</span>
+                <span class="value ${getRiskClass(gaugeValues.risk)}">${riskText}</span>
+            </div>
+            ${data.technical_summary ? `
+            <div class="summary-item">
+                <span class="label">Latest Signal:</span>
+                <span class="value">${data.technical_summary}</span>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// Render trading signals
+function renderTradingSignals(data) {
+    const signalsElement = document.getElementById('tradingSignals');
+    if (!signalsElement) return;
+    
+    if (data.error || !data.trading_signals) {
+        signalsElement.innerHTML = '<div class="no-signals">No signals available</div>';
+        return;
+    }
+    
+    let signalsHTML = '';
+    data.trading_signals.forEach((signal, index) => {
+        const signalType = getSignalType(signal);
+        signalsHTML += `
+            <div class="signal-item ${signalType}">
+                <div class="signal-icon">${getSignalIcon(signalType)}</div>
+                <div class="signal-content">
+                    <div class="signal-text">${signal}</div>
+                    <div class="signal-meta">${new Date().toLocaleTimeString()}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    signalsElement.innerHTML = signalsHTML || '<div class="no-signals">No active signals</div>';
+}
+
+// Render market structure
+function renderMarketStructure(data) {
+    const structureElement = document.getElementById('marketStructure');
+    if (!structureElement) return;
+    
+    if (data.error || !data.market_structure) {
+        structureElement.innerHTML = '<div class="no-data">Market structure data unavailable</div>';
+        return;
+    }
+    
+    structureElement.innerHTML = `
+        <div class="structure-content">
+            <div class="structure-item">
+                <span class="label">Timeframe Analysis:</span>
+                <span class="value">${data.market_structure}</span>
+            </div>
+        </div>
+    `;
+}
+
+// ==================== ALERT SYSTEM ENHANCEMENTS ====================
+
+// Check for confluence-based alerts
+function checkConfluenceAlerts() {
+    if (!alertSettings.momentumAlerts) return;
+    
+    // High momentum alert
+    if (gaugeValues.momentum >= 80) {
+        createAlert('momentum', `Strong bullish confluence detected (${gaugeValues.momentum}%)`, 'high');
+    } else if (gaugeValues.momentum <= 20) {
+        createAlert('momentum', `Strong bearish confluence detected (${gaugeValues.momentum}%)`, 'high');
+    }
+    
+    // High volatility alert
+    if (gaugeValues.volatility >= 80) {
+        createAlert('volatility', `High market volatility detected (${gaugeValues.volatility}%)`, 'medium');
+    }
+    
+    // High risk alert
+    if (gaugeValues.risk >= 80) {
+        createAlert('risk', `Elevated market risk level (${gaugeValues.risk}%)`, 'high');
+    }
+}
+
+// ==================== ALERT MANAGEMENT ====================
+
+// Toggle alert setting
+function toggleAlertSetting(setting, enabled) {
+    alertSettings[setting] = enabled;
+    saveAlertSettings();
+    console.log(`Alert setting ${setting} ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+// Create new alert
+function createAlert(type, message, priority = 'medium') {
+    const alert = {
+        id: generateAlertId(),
+        type: type,
+        message: message,
+        priority: priority,
+        time: new Date().toLocaleTimeString(),
+        resolved: false
+    };
+    
+    activeAlerts.unshift(alert); // Add to beginning
+    if (activeAlerts.length > 50) {
+        activeAlerts.pop(); // Keep only last 50 alerts
+    }
+    
+    renderActiveAlerts();
+    showAlertNotification(alert);
+    
+    return alert;
+}
+
+// Resolve alert
+function resolveAlert(alertId) {
+    const alert = activeAlerts.find(a => a.id === alertId);
+    if (alert) {
+        alert.resolved = true;
+        alert.resolvedTime = new Date().toLocaleTimeString();
+        renderActiveAlerts();
+    }
+}
+
+// Clear all alerts
+function clearAllAlerts() {
+    activeAlerts = [];
+    renderActiveAlerts();
+}
+
+// Test alert system
+function testAlertSystem() {
+    createAlert('test', 'This is a test alert - system is working correctly', 'low');
+}
+
+// ==================== ALERT CHECKING ====================
+
+// Check for RSI alerts
+function checkRSIAlerts(rsiValue) {
+    if (!alertSettings.rsiAlerts) return;
+    
+    if (rsiValue > 70) {
+        createAlert('rsi', `RSI Overbought: ${rsiValue.toFixed(1)} - Potential sell signal`, 'high');
+    } else if (rsiValue < 30) {
+        createAlert('rsi', `RSI Oversold: ${rsiValue.toFixed(1)} - Potential buy signal`, 'high');
+    }
+}
+
+// Check for price alerts (placeholder)
+function checkPriceAlerts(currentPrice, symbol) {
+    if (!alertSettings.priceAlerts) return;
+    // Implementation would track key price levels
+}
+
+// Check for volume alerts (placeholder)
+function checkVolumeAlerts(currentVolume, averageVolume) {
+    if (!alertSettings.volumeAlerts) return;
+    
+    if (currentVolume > averageVolume * 2) {
+        createAlert('volume', `Volume spike detected: ${(currentVolume/averageVolume).toFixed(1)}x average`, 'medium');
+    }
+}
+
+// ==================== ALERT RENDERING ====================
+
+// Render alerts sections
+function renderAlertsSections() {
+    renderActiveAlerts();
+    renderAlertSettings();
+}
+
+// Render active alerts
+function renderActiveAlerts() {
+    const alertsElement = document.getElementById('activeAlerts');
+    if (!alertsElement) return;
+    
+    if (activeAlerts.length === 0) {
+        alertsElement.innerHTML = `
+            <div class="no-alerts">
+                <div class="no-alerts-icon">🔕</div>
+                <div class="no-alerts-text">No active alerts</div>
+                <div class="no-alerts-subtext">Alerts will appear here when triggered</div>
+            </div>
+        `;
+        return;
+    }
+    
+    let alertsHTML = '';
+    activeAlerts.forEach(alert => {
+        alertsHTML += `
+            <div class="alert-item ${alert.resolved ? 'resolved' : 'active'} ${alert.type}">
+                <div class="alert-header">
+                    <span class="alert-type">${alert.type}</span>
+                    <span class="alert-time">${alert.time}</span>
+                </div>
+                <div class="alert-message">${alert.message}</div>
+                ${!alert.resolved ? `
+                    <div class="alert-actions">
+                        <button class="alert-btn resolve" onclick="resolveAlert('${alert.id}')">
+                            Mark Resolved
+                        </button>
                     </div>
                 ` : ''}
             </div>
         `;
-    }).join('');
-}
-
-function generateIndicatorSettings(indicatorId, config) {
-    const baseType = indicatorId.split('_')[0];
+    });
     
-    switch(baseType) {
-        case 'sma': case 'ema': case 'rsi':
-            return `
-                <div class="setting-group">
-                    <label>Period:</label>
-                    <input type="number" value="${config.period}" min="${config.minPeriod}" max="${config.maxPeriod}" onchange="updateIndicatorSetting('${indicatorId}', 'period', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Color:</label>
-                    <input type="color" value="${config.color}" onchange="updateIndicatorSetting('${indicatorId}', 'color', this.value)">
-                </div>
-            `;
-        case 'macd':
-            return `
-                <div class="setting-group">
-                    <label>Fast Period:</label>
-                    <input type="number" value="${config.fastPeriod}" min="1" max="50" onchange="updateIndicatorSetting('${indicatorId}', 'fastPeriod', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Slow Period:</label>
-                    <input type="number" value="${config.slowPeriod}" min="1" max="50" onchange="updateIndicatorSetting('${indicatorId}', 'slowPeriod', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Signal Period:</label>
-                    <input type="number" value="${config.signalPeriod}" min="1" max="50" onchange="updateIndicatorSetting('${indicatorId}', 'signalPeriod', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Color:</label>
-                    <input type="color" value="${config.color}" onchange="updateIndicatorSetting('${indicatorId}', 'color', this.value)">
-                </div>
-            `;
-        case 'bollinger':
-            return `
-                <div class="setting-group">
-                    <label>Period:</label>
-                    <input type="number" value="${config.period}" min="1" max="50" onchange="updateIndicatorSetting('${indicatorId}', 'period', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Std Dev:</label>
-                    <input type="number" value="${config.stdDev}" min="1" max="5" step="0.1" onchange="updateIndicatorSetting('${indicatorId}', 'stdDev', parseFloat(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Color:</label>
-                    <input type="color" value="${config.color}" onchange="updateIndicatorSetting('${indicatorId}', 'color', this.value)">
-                </div>
-            `;
-        case 'stochastic':
-            return `
-                <div class="setting-group">
-                    <label>%K Period:</label>
-                    <input type="number" value="${config.kPeriod}" min="1" max="50" onchange="updateIndicatorSetting('${indicatorId}', 'kPeriod', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>%K Smooth:</label>
-                    <input type="number" value="${config.kSmooth}" min="1" max="10" onchange="updateIndicatorSetting('${indicatorId}', 'kSmooth', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>%D Smooth:</label>
-                    <input type="number" value="${config.dSmooth}" min="1" max="10" onchange="updateIndicatorSetting('${indicatorId}', 'dSmooth', parseInt(this.value))">
-                </div>
-                <div class="setting-group">
-                    <label>Color:</label>
-                    <input type="color" value="${config.color}" onchange="updateIndicatorSetting('${indicatorId}', 'color', this.value)">
-                </div>
-            `;
-        case 'supportresistance':
-            return `
-                <div class="setting-group">
-                    <label>Support Color:</label>
-                    <input type="color" value="${config.supportColor}" onchange="updateIndicatorSetting('${indicatorId}', 'supportColor', this.value)">
-                </div>
-                <div class="setting-group">
-                    <label>Resistance Color:</label>
-                    <input type="color" value="${config.resistanceColor}" onchange="updateIndicatorSetting('${indicatorId}', 'resistanceColor', this.value)">
-                </div>
-            `;
-        default:
-            return `
-                <div class="setting-group">
-                    <label>Color:</label>
-                    <input type="color" value="${config.color}" onchange="updateIndicatorSetting('${indicatorId}', 'color', this.value)">
-                </div>
-            `;
-    }
+    alertsElement.innerHTML = alertsHTML;
 }
 
-function getIndicatorDisplayValue(indicatorId, config) {
-    const baseType = indicatorId.split('_')[0];
+// Render alert settings
+function renderAlertSettings() {
+    const settingsElement = document.getElementById('alertSettings');
+    if (!settingsElement) return;
     
-    switch(baseType) {
-        case 'bollinger':
-            const bbMiddle = currentIndicatorValues.bb_middle;
-            return bbMiddle ? `BB: ${bbMiddle.toFixed(5)}` : '--';
-        case 'stochastic':
-            const stochK = currentIndicatorValues.stoch_k;
-            const stochD = currentIndicatorValues.stoch_d;
-            if (stochK && stochD) return `K:${stochK.toFixed(1)} D:${stochD.toFixed(1)}`;
-            return '--';
-        case 'macd':
-            const macd = currentIndicatorValues.macd;
-            const macdSignal = currentIndicatorValues.macd_signal;
-            if (macd && macdSignal) return `MACD:${macd.toFixed(4)} Signal:${macdSignal.toFixed(4)}`;
-            return '--';
-        case 'supportresistance':
-            return 'Auto';
-        default:
-            const instanceNumber = config.instanceNumber;
-            const valueKeys = [
-                `${baseType}_${config.period}`, `${baseType}_${instanceNumber}`, baseType, `${baseType}_20`, `${baseType}_12`
-            ];
-            
-            for (const key of valueKeys) {
-                if (currentIndicatorValues && currentIndicatorValues[key] !== undefined) {
-                    const value = currentIndicatorValues[key];
-                    return typeof value === 'number' ? value.toFixed(4) : '--';
-                }
-            }
-            return '--';
-    }
-}
-
-// ==================== UTILITIES & HELPERS ====================
-
-// Volume formatting
-function formatVolume(volume) {
-    if (!volume && volume !== 0) return '--';
-    const numVolume = parseFloat(volume);
-    if (numVolume >= 1000000) return `${(numVolume / 1000000).toFixed(1)}M`;
-    if (numVolume >= 1000) return `${(numVolume / 1000).toFixed(1)}K`;
-    return numVolume.toFixed(0);
-}
-
-// Color management
-function initializeColorPickers() {
-    updateColorPickers();
-}
-
-function updateColorPickers() {
-    const colorPickers = document.getElementById('colorPickers');
-    if (!colorPickers) return;
-
-    let colorHTML = `
-        <div class="color-picker">
-            <label>Line Color:</label>
-            <input type="color" id="lineColor" value="${chartColors.line}" onchange="updateChartColors()">
+    settingsElement.innerHTML = `
+        <div class="alert-setting-group">
+            <div class="alert-setting-item">
+                <input type="checkbox" id="rsiAlert" ${alertSettings.rsiAlerts ? 'checked' : ''} 
+                       onchange="toggleAlertSetting('rsiAlerts', this.checked)">
+                <label for="rsiAlert">RSI Overbought/Oversold (70/30)</label>
+            </div>
+            <div class="alert-setting-item">
+                <input type="checkbox" id="priceAlert" ${alertSettings.priceAlerts ? 'checked' : ''}
+                       onchange="toggleAlertSetting('priceAlerts', this.checked)">
+                <label for="priceAlert">Key Price Level Breaks</label>
+            </div>
+            <div class="alert-setting-item">
+                <input type="checkbox" id="volumeAlert" ${alertSettings.volumeAlerts ? 'checked' : ''}
+                       onchange="toggleAlertSetting('volumeAlerts', this.checked)">
+                <label for="volumeAlert">Volume Spikes (2x Average)</label>
+            </div>
+            <div class="alert-setting-item">
+                <input type="checkbox" id="momentumAlert" ${alertSettings.momentumAlerts ? 'checked' : ''}
+                       onchange="toggleAlertSetting('momentumAlerts', this.checked)">
+                <label for="momentumAlert">Momentum Shifts</label>
+            </div>
+        </div>
+        <div class="alert-actions-global">
+            <button class="alert-btn test" onclick="testAlertSystem()">Test Alert System</button>
+            <button class="alert-btn clear" onclick="clearAllAlerts()">Clear All Alerts</button>
         </div>
     `;
-    
-    colorPickers.innerHTML = colorHTML;
-    
-    if (currentTimeframe && currentChart) {
-        loadChart(currentTimeframe);
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+// Get signal type from signal text
+function getSignalType(signal) {
+    if (signal.toLowerCase().includes('buy') || signal.toLowerCase().includes('bullish')) {
+        return 'bullish';
+    } else if (signal.toLowerCase().includes('sell') || signal.toLowerCase().includes('bearish')) {
+        return 'bearish';
+    }
+    return 'neutral';
+}
+
+// Get signal icon
+function getSignalIcon(signalType) {
+    switch(signalType) {
+        case 'bullish': return '🟢';
+        case 'bearish': return '🔴';
+        default: return '⚪';
     }
 }
 
-function updateChartColors() {
-    const lineColorInput = document.getElementById('lineColor');
-    if (lineColorInput) chartColors.line = lineColorInput.value;
-    
-    chartColors.areaFill = 'rgba(58, 134, 255, 0.15)';
-    
-    if (currentTimeframe) {
-        loadChart(currentTimeframe);
-    }
+// Get momentum description text
+function getMomentumText(value) {
+    if (value >= 80) return 'Very Bullish';
+    if (value >= 67) return 'Bullish';
+    if (value >= 45) return 'Slightly Bullish';
+    if (value >= 33) return 'Neutral';
+    if (value >= 20) return 'Slightly Bearish';
+    if (value >= 0) return 'Bearish';
+    return 'Very Bearish';
 }
 
-// Current price display
-function updateCurrentPrice(price) {
-    const currentPriceElement = document.getElementById('currentPrice');
-    if (currentPriceElement && price) {
-        currentPriceElement.textContent = typeof price === 'number' ? price.toFixed(5) : price;
-        
-        const lastPrice = parseFloat(currentPriceElement.dataset.lastPrice) || price;
-        if (price > lastPrice) {
-            currentPriceElement.style.color = 'var(--green)';
-            currentPriceElement.style.borderColor = 'var(--green-border)';
-        } else if (price < lastPrice) {
-            currentPriceElement.style.color = 'var(--red)';
-            currentPriceElement.style.borderColor = 'var(--red-border)';
+// Get strength description text
+function getStrengthText(value) {
+    if (value >= 80) return 'Very Strong';
+    if (value >= 67) return 'Strong';
+    if (value >= 45) return 'Moderate';
+    if (value >= 33) return 'Weak';
+    return 'Very Weak';
+}
+
+// Get risk description text
+function getRiskText(value) {
+    if (value >= 80) return 'Very High';
+    if (value >= 67) return 'High';
+    if (value >= 45) return 'Medium';
+    if (value >= 33) return 'Low';
+    return 'Very Low';
+}
+
+// Get CSS classes for values
+function getMomentumClass(value) {
+    if (value >= 67) return 'bullish';
+    if (value <= 33) return 'bearish';
+    return 'neutral';
+}
+
+function getStrengthClass(value) {
+    if (value >= 67) return 'strong';
+    if (value <= 33) return 'weak';
+    return 'moderate';
+}
+
+function getRiskClass(value) {
+    if (value >= 67) return 'high';
+    if (value <= 33) return 'low';
+    return 'medium';
+}
+
+function getConsensusClass(percent) {
+    if (percent >= 80) return 'strong';
+    if (percent >= 60) return 'moderate';
+    return 'weak';
+}
+
+function getConsensusText(percent) {
+    if (percent >= 80) return 'Strong Agreement';
+    if (percent >= 60) return 'Moderate Agreement';
+    return 'Weak Agreement';
+}
+
+function getConfidenceClass(confidence) {
+    if (confidence >= 80) return 'high';
+    if (confidence >= 60) return 'medium';
+    return 'low';
+}
+
+// Generate unique alert ID
+function generateAlertId() {
+    return 'alert_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Show alert notification
+function showAlertNotification(alert) {
+    // Could integrate with browser notifications here
+    console.log(`ALERT: ${alert.type} - ${alert.message}`);
+}
+
+// Load alert settings from localStorage
+function loadAlertSettings() {
+    try {
+        const saved = localStorage.getItem('megaFlowz_alertSettings');
+        if (saved) {
+            alertSettings = { ...alertSettings, ...JSON.parse(saved) };
         }
-        currentPriceElement.dataset.lastPrice = price;
+    } catch (e) {
+        console.warn('Could not load alert settings:', e);
     }
 }
 
-// Keyboard shortcuts
-function handleKeyboardShortcuts(e) {
-    if (e.ctrlKey || e.metaKey) {
-        switch(e.key) {
-            case 's':
-                e.preventDefault();
-                downloadChart();
-                break;
-        }
-    }
-    
-    // Additional shortcuts without modifier
-    switch(e.key) {
-        case 'c':
-            if (!e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-                toggleCrosshair();
-            }
-            break;
-        case 'i':
-            if (!e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-                toggleIndicatorsPanel();
-            }
-            break;
-        case 'z':
-            if (!e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-                zoomIn();
-            }
-            break;
-        case 'r':
-            if (!e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-                resetZoom();
-            }
-            break;
+// Save alert settings to localStorage
+function saveAlertSettings() {
+    try {
+        localStorage.setItem('megaFlowz_alertSettings', JSON.stringify(alertSettings));
+    } catch (e) {
+        console.warn('Could not save alert settings:', e);
     }
 }
-
-// ==================== EXPORT & STARTUP ====================
 
 // Export functions for global access
-window.MegaFlowzDashboard = {
-    initializeDashboard,
-    loadChart,
-    updateDashboard,
-    changePair,
-    changePyramidStyle,
-    setChartType,
-    addIndicatorFromDropdown,
-    removeIndicator,
-    toggleCrosshair,
-    downloadChart,
-    getPollingStatus,
-    onUserAction,
-    zoomIn,
-    resetZoom,
-    initializeChartScroll
+window.analysisAlerts = {
+    initialize: initializeAnalysisAlerts,
+    updateAnalysis: updateAnalysis,
+    calculateConfluence: calculateConfluence,
+    createAlert: createAlert,
+    resolveAlert: resolveAlert,
+    clearAllAlerts: clearAllAlerts,
+    checkRSIAlerts: checkRSIAlerts,
+    checkPriceAlerts: checkPriceAlerts,
+    checkVolumeAlerts: checkVolumeAlerts
 };
 
-// Global functions needed for HTML event handlers
-window.toggleBlock = toggleBlock;
-window.toggleIndicatorSettings = toggleIndicatorSettings;
-window.updateIndicatorSetting = updateIndicatorSetting;
-window.removeIndicator = removeIndicator;
-window.setPyramidSize = setPyramidSize;
-window.switchTab = switchTab;
-window.updateChartTimeframe = updateChartTimeframe;
-window.setChartType = setChartType;
-window.toggleIndicatorsPanel = toggleIndicatorsPanel;
-window.toggleCrosshair = toggleCrosshair;
-window.downloadChart = downloadChart;
-window.zoomIn = zoomIn;
-window.resetZoom = resetZoom;
-window.addIndicatorFromDropdown = addIndicatorFromDropdown;
-
-console.log("🚀 MEGA FLOWZ Dashboard Script Loaded Successfully!");
+// Make functions globally available
+window.toggleAlert = toggleAlertSetting;
+window.resolveAlert = resolveAlert;
+window.clearAllAlerts = clearAllAlerts;
+window.testAlertSystem = testAlertSystem;
