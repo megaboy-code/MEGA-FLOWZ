@@ -1,20 +1,40 @@
-app.js:776 Chart loading error: Error: "candlestick" is not a registered controller.
-    at sn._get (chart.js:13:83537)
-    at sn.getController (chart.js:13:82605)
-    at Tn.buildOrUpdateControllers (chart.js:13:94592)
-    at Tn.update (chart.js:13:95342)
-    at Tn.<anonymous> (chart.js:13:91533)
-    at Tn._doResize (chart.js:7:5652)
-    at Tn._resize (chart.js:13:92850)
-    at Tn.resize (chart.js:13:92441)
-    at a (chart.js:13:101406)
-    at Tn.bindResponsiveEvents (chart.js:13:101554)
+// ===============================================================
+// 🕯️ CANDLESTICK CHART REGISTRATION
+// ===============================================================
 
-app.js:776 Chart loading error: Error: Canvas is already in use. Chart with ID '9' must be destroyed before the canvas with ID 'mainChart' can be reused.
-    at new Tn (chart.js:13:90635)
-    at renderProfessionalChart (app.js:729:20)
-    at app.js:764:13
-18
-chart.js:13 Uncaught TypeError: Cannot read properties of null (reading 'save')
-9
-chart.js:13 Uncaught TypeError: Cannot read properties of null (reading 'save')
+// Register candlestick controller with Chart.js
+Chart.register({
+    id: 'candlestick',
+    type: 'candlestick',
+    // Basic candlestick element
+    element: {
+        draw: function(ctx, cfg) {
+            const { x, o, h, l, c, dataset } = cfg;
+            const width = 6;
+            const halfWidth = width / 2;
+            
+            ctx.save();
+            
+            // Determine color (green for bullish, red for bearish)
+            const isBullish = c >= o;
+            ctx.strokeStyle = isBullish ? '#00D394' : '#EF4444';
+            ctx.fillStyle = isBullish ? '#00D394' : '#EF4444';
+            ctx.lineWidth = 1;
+            
+            // Draw high-low line
+            ctx.beginPath();
+            ctx.moveTo(x, h);
+            ctx.lineTo(x, l);
+            ctx.stroke();
+            
+            // Draw open-close box
+            const top = Math.min(o, c);
+            const bottom = Math.max(o, c);
+            const height = Math.max(bottom - top, 1); // Ensure minimum height
+            
+            ctx.fillRect(x - halfWidth, top, width, height);
+            
+            ctx.restore();
+        }
+    }
+});
