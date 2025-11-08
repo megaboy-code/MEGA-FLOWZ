@@ -13,6 +13,7 @@ function getEnhancedChartOptions(timeframe, theme) {
                 display: false
             },
             tooltip: {
+                enabled: currentChartType !== 'candlestick', // ← ONLY THIS LINE ADDED
                 mode: 'nearest',
                 intersect: false,
                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
