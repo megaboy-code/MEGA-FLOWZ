@@ -293,7 +293,7 @@ function setupUserActivityListeners() {
         if (e.target.classList.contains('size-btn')) {
             // Pyramid size changes without active polling
         }
-    }
+    });
     
     // REMOVED: Timeframe changes - no longer trigger active polling
     const timeframeSelect = document.getElementById('timeframeSelect');
@@ -804,7 +804,7 @@ function buildIndicatorParameters() {
     return params;
 }
 
-// Chart dataset creators - ONLY CANDLESTICK FUNCTION MODIFIED
+// Chart dataset creators - FIXED CANDLESTICK
 function createCandlestickDataset(priceData, symbol, theme) {
     return [{
         label: `${symbol} Price`,
@@ -909,7 +909,7 @@ function createIndicatorDatasets(indicators_data, theme) {
     return datasets;
 }
 
-// Chart options and configuration
+// Chart options and configuration - FIXED TOOLTIP
 function getEnhancedChartOptions(timeframe, theme) {
     return {
         responsive: true, 
@@ -948,12 +948,20 @@ function getEnhancedChartOptions(timeframe, theme) {
                     },
                     label: function(context) {
                         let label = context.dataset.label || '';
-                        if (label) label += ': ';
-                        if (context.parsed.y !== null) {
-                            label += new Intl.NumberFormat('en-US', { 
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 5 
-                            }).format(context.parsed.y);
+                        
+                        // CANDLESTICK TOOLTIP - show OHLC data
+                        if (currentChartType === 'candlestick' && context.raw) {
+                            const item = context.raw;
+                            label += ` O:${item.o.toFixed(5)} H:${item.h.toFixed(5)} L:${item.l.toFixed(5)} C:${item.c.toFixed(5)}`;
+                        } else {
+                            // LINE/AREA CHART TOOLTIP - show y value
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('en-US', { 
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 5 
+                                }).format(context.parsed.y);
+                            }
                         }
                         return label;
                     }
@@ -967,8 +975,8 @@ function getEnhancedChartOptions(timeframe, theme) {
                     drag: {
                         enabled: isZoomModeActive, // Controlled by our toggle
                         modifierKey: null,
-                        backgroundColor: 'rgba(58, 134, 255, 0.3)',
-                        borderColor: 'rgba(58, 134, 255, 0.8)',
+                        backgroundColor: isZoomModeActive ? 'rgba(58, 134, 255, 0.3)' : 'transparent', // Blue when ON, transparent when OFF
+                        borderColor: isZoomModeActive ? 'rgba(58, 134, 255, 0.8)' : 'transparent', // Blue when ON, transparent when OFF
                         borderWidth: 1
                     }
                 },
@@ -987,11 +995,16 @@ function getEnhancedChartOptions(timeframe, theme) {
                 },
                 grid: { 
                     color: theme.grid,
-                    drawBorder: true, // ADDED BORDER
-                    borderColor: '#ffffffed', // YELLOW BORDER COLOR
-                    borderWidth: 2,
+                    drawBorder: false,
+                    borderColor: 'transparent',
+                    borderWidth: 0,
                     drawOnChartArea: true,
-                    drawTicks: true
+                    drawTicks: true,
+                    lineWidth: (ctx) => {
+                        // Frame grid effect - thicker outer lines
+                        if (ctx.index === 0 || ctx.index === ctx.tickCount - 1) return 2;
+                        return 1;
+                    }
                 },
                 ticks: { 
                     color: theme.textSecondary,
@@ -1000,20 +1013,23 @@ function getEnhancedChartOptions(timeframe, theme) {
                     maxTicksLimit: 8
                 },
                 border: { 
-                    display: true, // ENABLE AXIS BORDER
-                    color: '#ebe6dcff',
-                    width: 2
+                    display: false
                 }
             },
             y: {
                 position: 'right',
                 grid: { 
                     color: theme.grid,
-                    drawBorder: true, // ADDED BORDER
-                    borderColor: '#e5e1d98d', // YELLOW BORDER COLOR
-                    borderWidth: 2,
+                    drawBorder: false,
+                    borderColor: 'transparent',
+                    borderWidth: 0,
                     drawOnChartArea: true,
-                    drawTicks: true
+                    drawTicks: true,
+                    lineWidth: (ctx) => {
+                        // Frame grid effect - thicker outer lines
+                        if (ctx.index === 0 || ctx.index === ctx.tickCount - 1) return 2;
+                        return 1;
+                    }
                 },
                 ticks: { 
                     color: theme.textSecondary,
@@ -1021,9 +1037,7 @@ function getEnhancedChartOptions(timeframe, theme) {
                     maxTicksLimit: 6
                 },
                 border: { 
-                    display: true, // ENABLE AXIS BORDER
-                    color: '#f5f0e896',
-                    width: 2
+                    display: false
                 }
             },
             y2: {
@@ -1031,19 +1045,22 @@ function getEnhancedChartOptions(timeframe, theme) {
                 position: 'left',
                 grid: { 
                     drawOnChartArea: false,
-                    drawBorder: true, // ADDED BORDER
-                    borderColor: '#e5e2df82',
-                    borderWidth: 2
+                    drawBorder: false,
+                    borderColor: 'transparent',
+                    borderWidth: 0,
+                    lineWidth: (ctx) => {
+                        // Frame grid effect - thicker outer lines
+                        if (ctx.index === 0 || ctx.index === ctx.tickCount - 1) return 2;
+                        return 1;
+                    }
                 },
                 ticks: { 
-                    color: '#f7f4f09d',
+                    color: '#F59E0B',
                     callback: (value) => value.toFixed(2),
                     maxTicksLimit: 5
                 },
                 border: { 
-                    display: true, // ENABLE AXIS BORDER
-                    color: '#e7e4df97',
-                    width: 2
+                    display: false
                 },
                 min: 0,
                 max: 100
@@ -1166,7 +1183,7 @@ function drawCrosshair() {
     if (crosshairX < chartArea.left || crosshairX > chartArea.right || crosshairY < chartArea.top || crosshairY > chartArea.bottom) return;
 
     ctx.save();
-    ctx.strokeStyle = '#eeece9ff';
+    ctx.strokeStyle = '#F59E0B';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
     
@@ -1181,7 +1198,7 @@ function drawCrosshair() {
     ctx.stroke();
     
     ctx.setLineDash([]);
-    ctx.fillStyle = '#f3f0edff';
+    ctx.fillStyle = '#F59E0B';
     ctx.beginPath();
     ctx.arc(crosshairX, crosshairY, 4, 0, 2 * Math.PI);
     ctx.fill();
@@ -1230,17 +1247,20 @@ function updateChartTimeframe() {
     loadChart(timeframe);
 }
 
+// FIXED: Crosshair button with background feedback
 function toggleCrosshair() {
     crosshairEnabled = !crosshairEnabled;
     const crosshairBtn = document.getElementById('crosshairBtn');
     
-    if (crosshairBtn && crosshairBtn.textContent.includes('Cross')) {
+    if (crosshairBtn) {
         if (crosshairEnabled) {
             crosshairBtn.innerHTML = '⊕';
             crosshairBtn.classList.add('active');
+            crosshairBtn.style.backgroundColor = 'rgba(58, 134, 255, 0.3)'; // Blue when ON
         } else {
             crosshairBtn.innerHTML = '⊕';
             crosshairBtn.classList.remove('active');
+            crosshairBtn.style.backgroundColor = 'transparent'; // No color when OFF
         }
     }
     
