@@ -175,130 +175,134 @@
     </div>
 
     <div id="analysis-tab" class="tab-content">
-<!-- Gauges Container -->
-<div class="gauges-container" id="gauges-container">
-    <div class="gauge-row">
-        <div class="gauge-item" id="momentum-gauge">
+      <!-- Professional Gauges Container -->
+      <div class="gauges-container" id="gauges-container" data-initialized="false">
+        <div class="gauge-row">
+          <!-- Momentum Gauge -->
+          <div class="gauge-item" id="momentum-gauge" data-gauge-type="momentum">
             <div class="gauge-title">Momentum</div>
             <div class="gauge-container">
-                <div class="gauge-arc">
-                    <div class="gauge-arc-fill" id="momentum-arc"></div>
+              <div class="gauge-arc">
+                <div class="gauge-arc-fill" id="momentum-arc"></div>
+              </div>
+              <div class="gauge-hub"></div>
+              <div class="gauge-needle-container">
+                <div class="gauge-needle" id="momentum-needle">
+                  <div class="needle-head"></div>
                 </div>
-                <div class="gauge-hub"></div>
-                <div class="gauge-needle-container">
-                    <div class="gauge-needle" id="momentum-needle">
-                        <div class="needle-head"></div>
-                    </div>
-                </div>
-                <div class="gauge-value-container">
-                    <div class="gauge-score" id="momentum-score">50</div>
-                    <div class="gauge-unit">%</div>
-                </div>
-                <div class="gauge-label-container">
-                    <div class="gauge-label" id="momentum-label">Neutral</div>
-                    <div class="gauge-indicator-dot" id="momentum-indicator"></div>
-                </div>
-                <div class="gauge-markers">
-                    <div class="marker marker-0">0</div>
-                    <div class="marker marker-25">25</div>
-                    <div class="marker marker-50">50</div>
-                    <div class="marker marker-75">75</div>
-                    <div class="marker marker-100">100</div>
-                </div>
+              </div>
+              <div class="gauge-value-container">
+                <div class="gauge-score" id="momentum-score">50</div>
+                <div class="gauge-unit">%</div>
+              </div>
+              <div class="gauge-label-container">
+                <div class="gauge-label neutral" id="momentum-label">Neutral</div>
+                <div class="gauge-indicator-dot" id="momentum-indicator"></div>
+              </div>
+              <div class="gauge-markers">
+                <div class="marker marker-0">0</div>
+                <div class="marker marker-25">25</div>
+                <div class="marker marker-50">50</div>
+                <div class="marker marker-75">75</div>
+                <div class="marker marker-100">100</div>
+              </div>
             </div>
-        </div>
-        
-        <div class="gauge-item" id="volatility-gauge">
+          </div>
+          
+          <!-- Volatility Gauge -->
+          <div class="gauge-item" id="volatility-gauge" data-gauge-type="volatility">
             <div class="gauge-title">Volatility</div>
             <div class="gauge-container">
-                <div class="gauge-arc">
-                    <div class="gauge-arc-fill" id="volatility-arc"></div>
+              <div class="gauge-arc">
+                <div class="gauge-arc-fill" id="volatility-arc"></div>
+              </div>
+              <div class="gauge-hub"></div>
+              <div class="gauge-needle-container">
+                <div class="gauge-needle" id="volatility-needle">
+                  <div class="needle-head"></div>
                 </div>
-                <div class="gauge-hub"></div>
-                <div class="gauge-needle-container">
-                    <div class="gauge-needle" id="volatility-needle">
-                        <div class="needle-head"></div>
-                    </div>
-                </div>
-                <div class="gauge-value-container">
-                    <div class="gauge-score" id="volatility-score">50</div>
-                    <div class="gauge-unit">%</div>
-                </div>
-                <div class="gauge-label-container">
-                    <div class="gauge-label" id="volatility-label">Medium</div>
-                    <div class="gauge-indicator-dot" id="volatility-indicator"></div>
-                </div>
-                <div class="gauge-markers">
-                    <div class="marker marker-0">0</div>
-                    <div class="marker marker-25">25</div>
-                    <div class="marker marker-50">50</div>
-                    <div class="marker marker-75">75</div>
-                    <div class="marker marker-100">100</div>
-                </div>
+              </div>
+              <div class="gauge-value-container">
+                <div class="gauge-score" id="volatility-score">50</div>
+                <div class="gauge-unit">%</div>
+              </div>
+              <div class="gauge-label-container">
+                <div class="gauge-label medium" id="volatility-label">Medium</div>
+                <div class="gauge-indicator-dot" id="volatility-indicator"></div>
+              </div>
+              <div class="gauge-markers">
+                <div class="marker marker-0">0</div>
+                <div class="marker marker-25">25</div>
+                <div class="marker marker-50">50</div>
+                <div class="marker marker-75">75</div>
+                <div class="marker marker-100">100</div>
+              </div>
             </div>
-        </div>
-        
-        <div class="gauge-item" id="strength-gauge">
+          </div>
+          
+          <!-- Strength Gauge -->
+          <div class="gauge-item" id="strength-gauge" data-gauge-type="strength">
             <div class="gauge-title">Strength</div>
             <div class="gauge-container">
-                <div class="gauge-arc">
-                    <div class="gauge-arc-fill" id="strength-arc"></div>
+              <div class="gauge-arc">
+                <div class="gauge-arc-fill" id="strength-arc"></div>
+              </div>
+              <div class="gauge-hub"></div>
+              <div class="gauge-needle-container">
+                <div class="gauge-needle" id="strength-needle">
+                  <div class="needle-head"></div>
                 </div>
-                <div class="gauge-hub"></div>
-                <div class="gauge-needle-container">
-                    <div class="gauge-needle" id="strength-needle">
-                        <div class="needle-head"></div>
-                    </div>
-                </div>
-                <div class="gauge-value-container">
-                    <div class="gauge-score" id="strength-score">50</div>
-                    <div class="gauge-unit">%</div>
-                </div>
-                <div class="gauge-label-container">
-                    <div class="gauge-label" id="strength-label">Moderate</div>
-                    <div class="gauge-indicator-dot" id="strength-indicator"></div>
-                </div>
-                <div class="gauge-markers">
-                    <div class="marker marker-0">0</div>
-                    <div class="marker marker-25">25</div>
-                    <div class="marker marker-50">50</div>
-                    <div class="marker marker-75">75</div>
-                    <div class="marker marker-100">100</div>
-                </div>
+              </div>
+              <div class="gauge-value-container">
+                <div class="gauge-score" id="strength-score">50</div>
+                <div class="gauge-unit">%</div>
+              </div>
+              <div class="gauge-label-container">
+                <div class="gauge-label moderate" id="strength-label">Moderate</div>
+                <div class="gauge-indicator-dot" id="strength-indicator"></div>
+              </div>
+              <div class="gauge-markers">
+                <div class="marker marker-0">0</div>
+                <div class="marker marker-25">25</div>
+                <div class="marker marker-50">50</div>
+                <div class="marker marker-75">75</div>
+                <div class="marker marker-100">100</div>
+              </div>
             </div>
-        </div>
-        
-        <div class="gauge-item" id="risk-gauge">
+          </div>
+          
+          <!-- Risk Gauge -->
+          <div class="gauge-item" id="risk-gauge" data-gauge-type="risk">
             <div class="gauge-title">Risk</div>
             <div class="gauge-container">
-                <div class="gauge-arc">
-                    <div class="gauge-arc-fill" id="risk-arc"></div>
+              <div class="gauge-arc">
+                <div class="gauge-arc-fill" id="risk-arc"></div>
+              </div>
+              <div class="gauge-hub"></div>
+              <div class="gauge-needle-container">
+                <div class="gauge-needle" id="risk-needle">
+                  <div class="needle-head"></div>
                 </div>
-                <div class="gauge-hub"></div>
-                <div class="gauge-needle-container">
-                    <div class="gauge-needle" id="risk-needle">
-                        <div class="needle-head"></div>
-                    </div>
-                </div>
-                <div class="gauge-value-container">
-                    <div class="gauge-score" id="risk-score">50</div>
-                    <div class="gauge-unit">%</div>
-                </div>
-                <div class="gauge-label-container">
-                    <div class="gauge-label" id="risk-label">Medium</div>
-                    <div class="gauge-indicator-dot" id="risk-indicator"></div>
-                </div>
-                <div class="gauge-markers">
-                    <div class="marker marker-0">0</div>
-                    <div class="marker marker-25">25</div>
-                    <div class="marker marker-50">50</div>
-                    <div class="marker marker-75">75</div>
-                    <div class="marker marker-100">100</div>
-                </div>
+              </div>
+              <div class="gauge-value-container">
+                <div class="gauge-score" id="risk-score">50</div>
+                <div class="gauge-unit">%</div>
+              </div>
+              <div class="gauge-label-container">
+                <div class="gauge-label medium" id="risk-label">Medium</div>
+                <div class="gauge-indicator-dot" id="risk-indicator"></div>
+              </div>
+              <div class="gauge-markers">
+                <div class="marker marker-0">0</div>
+                <div class="marker marker-25">25</div>
+                <div class="marker marker-50">50</div>
+                <div class="marker marker-75">75</div>
+                <div class="marker marker-100">100</div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
-</div>
+      </div>
 
       <!-- Multi-Timeframe Strength -->
       <div class="analysis-section" id="timeframe-strength-section">
