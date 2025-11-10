@@ -176,7 +176,7 @@
     <div id="analysis-tab" class="tab-content">
       <!-- Market Gauge Section Header -->
       <div class="analysis-section">
-        <h3>📊 Market Gauges</h3>
+        <h3>⏲ Market Gauges</h3>
         <div class="gauges-container" id="gauges-container" data-initialized="false">
           <div class="gauge-row">
             <!-- Momentum Gauge -->
